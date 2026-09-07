@@ -4,7 +4,7 @@ Monitors e-commerce platform competitors (**Shopify, WooCommerce,
 BigCommerce**) and will generate evidence-backed product opportunities
 and PRDs. Built incrementally, phase by phase.
 
-## Phase 1 (current): data pipeline — fetch → clean → store
+## Phase 1: data pipeline — fetch → clean → store
 
 Collects public discussions about each competitor into a local SQLite
 database, ready for the RAG / analysis stages.
@@ -12,6 +12,25 @@ database, ready for the RAG / analysis stages.
 **Data source:** Hacker News via the [Algolia API](https://hn.algolia.com/api)
 — public, no auth required. (Reddit's public JSON API now requires OAuth
 app credentials, so the pipeline was kept source-agnostic to add it later.)
+
+## Phase 2: RAG foundation — chunk → embed → vector search
+
+Reads the stored posts, splits them into overlapping chunks, embeds
+each chunk with a **local** model (bge-small-en-v1.5 via fastembed — no
+API key, no cost), and stores the vectors in SQLite next to the posts.
+`run_search.py` ranks chunks by cosine similarity and prints the source
+URL with each hit (the citation chain).
+
+```bash
+python run_index.py                        # build/refresh the vector index
+python run_search.py "shopify checkout fees"
+python run_search.py "migrating away from shopify" --competitor shopify
+python run_search.py                       # interactive mode
+```
+
+The embeddings live in the same SQLite file for now; cosine similarity
+runs in numpy. When the corpus grows, the index can move to a real
+vector DB (sqlite-vec / qdrant / chroma) behind the same interface.
 
 ## Run
 
@@ -26,11 +45,16 @@ python run_pipeline.py [--limit 25]
 
 ```
 market_intel/
-  config.py     # competitors + search queries (one place to edit)
+  config.py     # competitors + queries + chunk/embed knobs (one place to edit)
   fetch.py      # API calls -> raw JSON items
   clean.py      # normalize, drop junk, dedupe -> records
   store.py      # SQLite schema + idempotent inserts
+  chunk.py      # split posts into overlapping chunks
+  embed.py      # local embedding model wrapper (fastembed/bge)
+  vector.py     # chunk embeddings in SQLite + cosine search
 run_pipeline.py # CLI: fetch -> clean -> store
+run_index.py    # CLI: chunk + embed -> vector index
+run_search.py   # CLI: semantic search over the index
 data/           # raw JSON dumps + market_intel.db (gitignored)
 ```
 

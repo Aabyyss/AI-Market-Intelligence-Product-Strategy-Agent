@@ -18,6 +18,17 @@ USER_AGENT = "market-intel-agent/0.1 (portfolio project; learning data pipelines
 # Seconds to wait between API calls, to stay within rate limits.
 REQUEST_DELAY_SECONDS = 1.0
 
+# --- Phase 2: chunking + embeddings ---
+# Chunk size in words; overlapping neighbours so no idea is lost at a
+# chunk boundary. Most HN posts are short, so most get a single chunk.
+CHUNK_MAX_WORDS = 250
+CHUNK_OVERLAP_WORDS = 40
+
+# Local embedding model (fastembed / ONNX Runtime). bge-small-en-v1.5 is
+# small (384 dims) and strong for English retrieval. Downloaded once on
+# first use, then cached on disk.
+EMBED_MODEL = "BAAI/bge-small-en-v1.5"
+
 
 def queries_for(competitor: str) -> list[str]:
     """The exact search queries to run for one competitor.
