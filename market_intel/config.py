@@ -4,6 +4,8 @@ Keeping this in one place means the rest of the code never hard-codes
 a brand name. Adding a new competitor later is a one-line change here.
 """
 
+import os
+
 # The market we chose: e-commerce platforms.
 COMPETITORS = ["shopify", "woocommerce", "bigcommerce"]
 
@@ -28,6 +30,27 @@ CHUNK_OVERLAP_WORDS = 40
 # small (384 dims) and strong for English retrieval. Downloaded once on
 # first use, then cached on disk.
 EMBED_MODEL = "BAAI/bge-small-en-v1.5"
+
+# --- Phase 3: LLM (evidence-backed answering) ---
+# "auto" picks OpenAI if OPENAI_API_KEY is set, else Ollama if it
+# responds on localhost:11434. Override with LLM_PROVIDER=openai|ollama|custom.
+LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "auto")
+
+# Empty = use the per-provider default below. Override with LLM_MODEL=...
+LLM_MODEL = os.environ.get("LLM_MODEL", "")
+LLM_DEFAULT_MODELS = {
+    "openai": "gpt-4o-mini",
+    "ollama": "llama3.2",
+    "custom": "gpt-4o-mini",
+}
+
+# Low temperature: grounded answers should be deterministic, not creative.
+LLM_TEMPERATURE = 0.2
+LLM_MAX_TOKENS = 800
+
+# Ollama (and any OpenAI-compatible server) expose /v1 chat completions.
+OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://127.0.0.1:11434/v1")
+CUSTOM_BASE_URL = os.environ.get("OPENAI_BASE_URL", "")
 
 
 def queries_for(competitor: str) -> list[str]:
