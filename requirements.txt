@@ -1,4 +1,5 @@
 requests>=2.32
 numpy>=1.26
 fastembed>=0.3
+sqlite-vec>=0.1.9
 openai>=1.40

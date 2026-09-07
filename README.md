@@ -28,9 +28,12 @@ python run_search.py "migrating away from shopify" --competitor shopify
 python run_search.py                       # interactive mode
 ```
 
-The embeddings live in the same SQLite file for now; cosine similarity
-runs in numpy. When the corpus grows, the index can move to a real
-vector DB (sqlite-vec / qdrant / chroma) behind the same interface.
+The embeddings live in the same SQLite file, indexed by a real vector
+index — the **sqlite-vec** extension's `vec0` virtual table (k-NN search,
+`distance_metric=cosine`), alongside the `chunks` metadata table. The
+`--competitor` filter is applied as a SQL join after the scan, since
+`vec0` cannot filter on non-vector columns; a scan covers the whole
+corpus so results match a global cosine ranking exactly.
 
 ## Phase 3: grounded Q&A — retrieve → answer → cite
 
@@ -72,7 +75,7 @@ market_intel/
   store.py      # SQLite schema + idempotent inserts
   chunk.py      # split posts into overlapping chunks
   embed.py      # local embedding model wrapper (fastembed/bge)
-  vector.py     # chunk embeddings in SQLite + cosine search
+  vector.py     # sqlite-vec vec0 index over chunks + cosine search
   llm.py        # pluggable LLM client (ollama / openai / custom)
   answer.py     # grounded Q&A: evidence prompt + citation validation
 run_pipeline.py # CLI: fetch -> clean -> store

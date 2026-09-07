@@ -1,21 +1,30 @@
-"""Vector index over the posts, stored in SQLite.
+"""Vector index over the posts, stored in SQLite via the sqlite-vec extension.
 
-The chunk embeddings live right beside the posts in the same SQLite
-file — no separate vector database yet. Cosine similarity is computed
-in numpy over the whole corpus, which is instant at this scale
-(hundreds of chunks). When the corpus grows, the index can move to a
-real vector DB (sqlite-vec / qdrant / chroma) behind the same
-``build_index`` / ``search`` interface.
+The chunk *metadata* (post_id, competitor, text) lives in the ``chunks``
+table. The embeddings themselves are indexed by a ``vec0`` virtual table
+(``vec_chunks``) from the sqlite-vec extension — a real vector index with
+k-NN search, instead of the earlier numpy scan over the whole corpus.
 
-Cosine similarity: cos(a, b) = a·b / (|a|·|b|). After L2-normalizing
-every vector, cosine similarity is just the dot product, which numpy
-computes for the whole matrix in one shot.
+vec0's cosine metric reports *distance* = 1 - cos(a, b) and L2-normalizes
+both sides internally, so ``score = 1 - distance`` reproduces the exact
+cosine-similarity scores the numpy implementation produced.
+
+vec0 tables hold only (chunk_id, embedding) — arbitrary column filters
+are not supported inside the MATCH. The ``--competitor`` filter is applied
+by scanning k = all chunks of that competitor and then joining to the
+chunks table, which returns the same top-k as the old in-memory ranking.
+(If the corpus grows, move competitor into the vec0 table itself.)
+
+If EMBED_MODEL ever changes dimension, drop the vec_chunks table once so
+it gets recreated with the new shape:
+    DROP TABLE vec_chunks;
 """
 
 import sqlite3
 from datetime import datetime, timezone
 
 import numpy as np
+import sqlite_vec
 
 from market_intel.chunk import chunks_for_record
 from market_intel.embed import Embedder, get_embedder
@@ -41,8 +50,24 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(CHUNKS_SCHEMA)
 
 
+def _load_vec(conn: sqlite3.Connection) -> None:
+    """Load the sqlite-vec extension onto a connection (idempotent)."""
+    conn.enable_load_extension(True)
+    sqlite_vec.load(conn)
+    conn.enable_load_extension(False)
+
+
+def ensure_vec_table(conn: sqlite3.Connection, dim: int) -> None:
+    """Create the vec0 virtual table if missing. ``dim`` must match the model."""
+    _load_vec(conn)
+    conn.execute(
+        "CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunks USING vec0("
+        f" chunk_id TEXT PRIMARY KEY, embedding float[{dim}] distance_metric=cosine)"
+    )
+
+
 def build_index(conn: sqlite3.Connection, verbose: bool = True) -> int:
-    """Chunk + embed every post and (re)build the chunks table.
+    """Chunk + embed every post and (re)build the index.
 
     Strategy: wipe and rebuild from scratch. The corpus is small, so a
     full rebuild is cheap and guarantees the index always matches the
@@ -51,6 +76,7 @@ def build_index(conn: sqlite3.Connection, verbose: bool = True) -> int:
     """
     ensure_schema(conn)
     embedder = get_embedder()
+    ensure_vec_table(conn, embedder.dim)
 
     conn.row_factory = sqlite3.Row
     posts = conn.execute(
@@ -68,7 +94,8 @@ def build_index(conn: sqlite3.Connection, verbose: bool = True) -> int:
     model = embedder.model_name
     built_at = datetime.now(timezone.utc).isoformat()
 
-    conn.execute("DELETE FROM chunks")  # full rebuild
+    conn.execute("DELETE FROM chunks")
+    conn.execute("DELETE FROM vec_chunks")
     rows = [
         (
             c["id"], c["post_id"], c["competitor"], c["chunk_index"],
@@ -80,6 +107,10 @@ def build_index(conn: sqlite3.Connection, verbose: bool = True) -> int:
         "INSERT INTO chunks (id, post_id, competitor, chunk_index,"
         " text, embedding, model, built_at) VALUES (?,?,?,?,?,?,?,?)",
         rows,
+    )
+    conn.executemany(
+        "INSERT INTO vec_chunks (chunk_id, embedding) VALUES (?, ?)",
+        [(c["id"], matrix[i].tobytes()) for i, c in enumerate(all_chunks)],
     )
     conn.commit()
 
@@ -96,49 +127,52 @@ def search(
     top_k: int = 5,
     competitor: str | None = None,
 ) -> list[dict]:
-    """Semantic search: embed the query, rank all chunks by cosine similarity.
+    """Semantic search: k-NN over the vec0 index, ranked by cosine similarity.
 
     Returns the top_k chunks joined with their post (title, url) so
     results carry a citation back to the source discussion.
     """
     embedder = get_embedder()
-    q = embedder.embed_query(query)
-    q = q / np.linalg.norm(q)
+    ensure_vec_table(conn, embedder.dim)
 
     conn.row_factory = sqlite3.Row
-    sql = (
-        "SELECT c.id AS chunk_id, c.post_id, c.competitor, c.chunk_index,"
-        " c.text, c.embedding, p.title, p.url, p.created_utc"
-        " FROM chunks c JOIN posts p ON p.id = c.post_id"
-    )
-    params: tuple = ()
-    if competitor:
-        sql += " WHERE c.competitor = ?"
-        params = (competitor,)
-    rows = conn.execute(sql, params).fetchall()
-    if not rows:
+    # vec0 cannot filter on non-vector columns, so the scan must cover
+    # the whole corpus and the competitor filter is applied in SQL after
+    # the MATCH. (Scanning k = one competitor's chunk count would not be
+    # equivalent: its globally-nearest chunks might all belong to another
+    # competitor, leaving nothing after the WHERE.)
+    k = conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
+    if not k:
         return []
 
-    matrix = np.vstack(
-        [np.frombuffer(r["embedding"], dtype=np.float32) for r in rows]
+    q = embedder.embed_query(query)
+    sql = (
+        "SELECT c.id AS chunk_id, c.post_id, c.competitor, c.chunk_index,"
+        " c.text, p.title, p.url, p.created_utc, v.distance"
+        " FROM vec_chunks v"
+        " JOIN chunks c ON c.id = v.chunk_id"
+        " JOIN posts p ON p.id = c.post_id"
+        " WHERE v.embedding MATCH ? AND k = ?"
     )
-    # L2-normalize rows -> cosine similarity becomes a dot product.
-    norms = np.linalg.norm(matrix, axis=1, keepdims=True)
-    matrix = matrix / np.where(norms == 0, 1, norms)
-    scores = matrix @ q
+    params: tuple = (q.tobytes(), k)
+    if competitor:
+        sql += " AND c.competitor = ?"
+        params += (competitor,)
+    rows = conn.execute(sql, params).fetchall()
 
-    order = np.argsort(-scores)[:top_k]
+    rows.sort(key=lambda r: r["distance"])
+    rows = rows[:top_k]
     return [
         {
-            "score": float(scores[i]),
-            "chunk_id": rows[i]["chunk_id"],
-            "post_id": rows[i]["post_id"],
-            "competitor": rows[i]["competitor"],
-            "chunk_index": rows[i]["chunk_index"],
-            "text": rows[i]["text"],
-            "title": rows[i]["title"],
-            "url": rows[i]["url"],
-            "created_utc": rows[i]["created_utc"],
+            "score": float(1 - r["distance"]),  # vec0 cosine distance -> similarity
+            "chunk_id": r["chunk_id"],
+            "post_id": r["post_id"],
+            "competitor": r["competitor"],
+            "chunk_index": r["chunk_index"],
+            "text": r["text"],
+            "title": r["title"],
+            "url": r["url"],
+            "created_utc": r["created_utc"],
         }
-        for i in order
+        for r in rows
     ]
