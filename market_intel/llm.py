@@ -77,8 +77,17 @@ def model_for(provider: str) -> str:
     )
 
 
-def chat(messages: list[dict], provider: str | None = None) -> str:
-    """One chat completion; returns the assistant's reply text."""
+def chat(
+    messages: list[dict],
+    provider: str | None = None,
+    max_tokens: int | None = None,
+) -> str:
+    """One chat completion; returns the assistant's reply text.
+
+    ``max_tokens`` overrides config.LLM_MAX_TOKENS per call — agents
+    that write longer outputs (report sections) can opt for more room
+    without changing the default for quick Q&A.
+    """
     provider = resolve_provider() if provider is None else provider
     model = model_for(provider)
     client = _client(provider)
@@ -87,7 +96,7 @@ def chat(messages: list[dict], provider: str | None = None) -> str:
             model=model,
             messages=messages,
             temperature=config.LLM_TEMPERATURE,
-            max_tokens=config.LLM_MAX_TOKENS,
+            max_tokens=max_tokens or config.LLM_MAX_TOKENS,
         )
     except openai.OpenAIError as exc:
         raise LLMError(f"LLM call failed ({provider}/{model}): {exc}") from exc

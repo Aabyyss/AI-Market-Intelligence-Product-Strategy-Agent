@@ -132,6 +132,9 @@ def search(
     Returns the top_k chunks joined with their post (title, url) so
     results carry a citation back to the source discussion.
     """
+    # A fresh DB (pipeline run, index never built) has no ``chunks``
+    # table yet — treat it as an empty index rather than crash.
+    ensure_schema(conn)
     embedder = get_embedder()
     ensure_vec_table(conn, embedder.dim)
 

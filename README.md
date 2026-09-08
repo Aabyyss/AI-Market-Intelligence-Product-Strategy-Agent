@@ -35,6 +35,20 @@ index — the **sqlite-vec** extension's `vec0` virtual table (k-NN search,
 `vec0` cannot filter on non-vector columns; a scan covers the whole
 corpus so results match a global cosine ranking exactly.
 
+The vector index has a **regression test suite** (`tests/`) that pins
+sqlite-vec's results to a reference numpy cosine ranking — the exact
+algorithm the index replaced. It covers ranking, the competitor filter
+(including the post-filter bug scenario), tie-breaking between
+byte-identical chunks (reposted articles), and an empty corpus.
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest tests/ -v
+```
+
+(First run downloads the embedding model once; it is cached afterwards,
+same as `python run_index.py`.)
+
 ## Phase 3: grounded Q&A — retrieve → answer → cite
 
 Closes the RAG loop: `run_ask.py` retrieves the top chunks for a
@@ -56,6 +70,40 @@ otherwise the **OpenAI API** when `OPENAI_API_KEY` is set. Override with
 the environment, never in the code. On machines where Ollama's GPU
 (Vulkan) discovery hangs, start it with `OLLAMA_VULKAN=false`.
 
+## Phase 4: multi-agent layer — research → analyze → strategize → fact-check
+
+Turns the knowledge base into a market report. Five agents, one job
+each, all working from the vector index (never raw text):
+
+```text
+research   -> plans search queries from the brief, gathers numbered evidence
+competitor -> analyzes each competitor: positioning/pricing, strengths, weaknesses
+customer   -> complaints, pain points, and praise from the community
+strategy   -> ranked product opportunities, risks, next step — all cited
+critic     -> fact-checks the draft against the evidence, flags unsupported claims
+```
+
+```bash
+python run_report.py "fees and developer payouts"
+python run_report.py "why merchants switch platforms" --competitors shopify woocommerce
+python run_report.py "checkout friction" --out my_report.md
+```
+
+The report lands in `data/reports/` (or `--out`) with a sources section
+mapping every citation number back to a URL. Anti-hallucination is the
+same layered defense as Phase 3, at report scale: every agent must cite
+numbered evidence, the critic judges *support* claim by claim, and a
+mechanical audit (code, not LLM) verifies every [n] points at evidence
+that was actually retrieved — including a warning when a draft cites
+nothing at all.
+
+Honest limits to know: a small local model (e.g. llama3.2:3b) produces
+generic analyst prose and a critic that over-flags subjective-but-
+accurate claims, so read reports critically — and the same model on a
+CPU-only machine makes a full report take several minutes. Both are
+better with a stronger model and faster hardware; the architecture is
+provider-agnostic.
+
 ## Run
 
 ```bash
@@ -68,6 +116,9 @@ python run_pipeline.py [--limit 25]
 ## Layout
 
 ```
+tests/
+  test_vector_search.py  # sqlite-vec vs numpy cosine regression suite
+conftest.py              # pytest sys.path bootstrap (empty)
 market_intel/
   config.py     # competitors + queries + chunk/embed knobs (one place to edit)
   fetch.py      # API calls -> raw JSON items
@@ -78,11 +129,13 @@ market_intel/
   vector.py     # sqlite-vec vec0 index over chunks + cosine search
   llm.py        # pluggable LLM client (ollama / openai / custom)
   answer.py     # grounded Q&A: evidence prompt + citation validation
+  agents.py     # Phase 4: five agents + report assembly (research..critic)
 run_pipeline.py # CLI: fetch -> clean -> store
 run_index.py    # CLI: chunk + embed -> vector index
 run_search.py   # CLI: semantic search over the index
 run_ask.py      # CLI: evidence-backed Q&A with citations
-data/           # raw JSON dumps + market_intel.db (gitignored)
+run_report.py   # CLI: multi-agent market report
+data/           # raw JSON dumps + market_intel.db + reports/ (gitignored)
 ```
 
 ## Roadmap
@@ -90,6 +143,6 @@ data/           # raw JSON dumps + market_intel.db (gitignored)
 1. ✅ Phase 1 — Python foundation: APIs, JSON, cleaning, SQLite storage
 2. ✅ Phase 2 — RAG: chunking, embeddings, vector search, citations
 3. ✅ Phase 3 — LLM: grounded Q&A with evidence and citations
-4. ⬜ Phase 4 — Agents: research → competitor → customer → strategy → critic
+4. ✅ Phase 4 — Agents: research → competitor → customer → strategy → critic
 5. ⬜ Phase 5 — n8n: scheduled workflow + notifications
 6. ⬜ Phase 6 — Production: FastAPI, Docker, env vars, eval, deploy

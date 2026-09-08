@@ -9,6 +9,13 @@ import os
 # The market we chose: e-commerce platforms.
 COMPETITORS = ["shopify", "woocommerce", "bigcommerce"]
 
+# Proper display names for reports (brands have specific capitalization).
+COMPETITOR_LABELS = {
+    "shopify": "Shopify",
+    "woocommerce": "WooCommerce",
+    "bigcommerce": "BigCommerce",
+}
+
 # Intel angles we monitor per competitor. For every angle the fetcher
 # runs a query made of the quoted brand name PLUS the angle keyword,
 # e.g. '"shopify" checkout'. "" = any mention of the brand at all.
@@ -51,6 +58,22 @@ LLM_MAX_TOKENS = 800
 # Ollama (and any OpenAI-compatible server) expose /v1 chat completions.
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://127.0.0.1:11434/v1")
 CUSTOM_BASE_URL = os.environ.get("OPENAI_BASE_URL", "")
+
+# --- Phase 4: multi-agent layer ---
+# Where run_report.py writes market reports.
+REPORT_DIR = "data/reports"
+
+# Research agent: how many topical queries per competitor it may propose
+# (the quoted brand name itself is always included as a baseline).
+QUERIES_PER_COMPETITOR = 2
+RESEARCH_MAX_TOKENS = 300
+
+# Analysts write longer outputs than a single answer — let them breathe.
+# (Smaller is also faster on CPU-only machines like a local Ollama box.)
+AGENT_MAX_TOKENS = 600
+
+# The critic has the most to write (one verdict line per claim + summary).
+CRITIC_MAX_TOKENS = 900
 
 
 def queries_for(competitor: str) -> list[str]:
