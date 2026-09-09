@@ -69,11 +69,14 @@ QUERIES_PER_COMPETITOR = 2
 RESEARCH_MAX_TOKENS = 300
 
 # Analysts write longer outputs than a single answer — let them breathe.
-# (Smaller is also faster on CPU-only machines like a local Ollama box.)
-AGENT_MAX_TOKENS = 600
+# (Structured JSON sections need room to finish: a truncated reply falls
+# back to unverified free text.)
+AGENT_MAX_TOKENS = 1000
 
-# The critic has the most to write (one verdict line per claim + summary).
-CRITIC_MAX_TOKENS = 900
+# The critic writes one verdict entry per claim; a claim-heavy draft
+# needs room for all of them (a truncated reply is unusable and would
+# fall back to unverified free text).
+CRITIC_MAX_TOKENS = 1000
 
 
 def queries_for(competitor: str) -> list[str]:

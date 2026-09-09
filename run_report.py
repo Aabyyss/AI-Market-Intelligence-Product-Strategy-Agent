@@ -47,6 +47,11 @@ def print_summary(s: dict, out_path: Path) -> None:
         f"{verdicts['SUPPORTED']} supported, {verdicts['PARTIAL']} partial, "
         f"{verdicts['UNSUPPORTED']} unsupported"
     )
+    if s.get("unstructured_sections"):
+        print(
+            "warning    : unstructured (non-JSON) sections: "
+            + ", ".join(s["unstructured_sections"])
+        )
     audit = s["citation_audit"]
     print(
         "citations  : "

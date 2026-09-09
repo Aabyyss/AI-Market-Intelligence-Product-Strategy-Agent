@@ -81,22 +81,40 @@ def chat(
     messages: list[dict],
     provider: str | None = None,
     max_tokens: int | None = None,
+    json_mode: bool = False,
 ) -> str:
     """One chat completion; returns the assistant's reply text.
 
     ``max_tokens`` overrides config.LLM_MAX_TOKENS per call — agents
     that write longer outputs (report sections) can opt for more room
     without changing the default for quick Q&A.
+
+    ``json_mode=True`` asks the provider for a JSON object reply
+    (Ollama's ``format=json``, OpenAI's ``response_format``). It steers
+    the model but does not guarantee valid JSON — callers still parse
+    and validate the reply (agents.py) and fall back when it is not
+    usable.
     """
     provider = resolve_provider() if provider is None else provider
     model = model_for(provider)
     client = _client(provider)
+    kwargs: dict = {}
+    if json_mode:
+        if provider == "ollama":
+            # Ollama's OpenAI-compatible layer accepts format=json to
+            # force a JSON reply (no markdown fences).
+            kwargs["extra_body"] = {"format": "json"}
+        elif provider == "openai":
+            kwargs["response_format"] = {"type": "json_object"}
+        # custom: the server may not support either knob, so ask for
+        # JSON in the prompt only.
     try:
         response = client.chat.completions.create(
             model=model,
             messages=messages,
             temperature=config.LLM_TEMPERATURE,
             max_tokens=max_tokens or config.LLM_MAX_TOKENS,
+            **kwargs,
         )
     except openai.OpenAIError as exc:
         raise LLMError(f"LLM call failed ({provider}/{model}): {exc}") from exc
