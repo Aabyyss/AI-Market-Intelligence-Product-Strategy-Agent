@@ -1,7 +1,7 @@
 """Evaluation harness (Phase 6 preview): score the RAG pipeline.
 
 Scores two layers against hand-labeled questions in
-data/eval_questions.json (each labels which posts are relevant):
+tests/fixtures/eval_questions.json (each labels which posts are relevant):
 
   retrieval  — precision@k, recall@k, MRR, nDCG@k of the vector index
   answer     — citation precision/recall of LLM answers (--with-answers):
@@ -41,7 +41,7 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 DB_PATH = "data/market_intel.db"
-DEFAULT_QUESTIONS = "data/eval_questions.json"
+DEFAULT_QUESTIONS = "tests/fixtures/eval_questions.json"
 
 
 def load_questions(path: str) -> list[dict]:
@@ -117,7 +117,7 @@ def render_report(rows: list[dict], top_k: int, provider: str | None,
         "## Methodology",
         "",
         "- Each question carries hand-labeled relevant posts (by HN post "
-        "id) in `data/eval_questions.json`.",
+        "id) in `tests/fixtures/eval_questions.json`.",
         "- Retrieval metrics score the vector index's top-k: precision@k "
         "(relevant hits / k), recall@k (relevant hits / all relevant), "
         "MRR (inverse rank of the first relevant hit), nDCG@k "
@@ -263,7 +263,7 @@ def main(questions_path: str, top_k: int, with_answers: bool,
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--questions", default=DEFAULT_QUESTIONS,
-                        help="labeled questions JSON (default: data/eval_questions.json)")
+                        help="labeled questions JSON (default: tests/fixtures/eval_questions.json)")
     parser.add_argument("--top", type=int, default=5,
                         help="k for retrieval and answer evidence (default: 5)")
     parser.add_argument("--with-answers", action="store_true",

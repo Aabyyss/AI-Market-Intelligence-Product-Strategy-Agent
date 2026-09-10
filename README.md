@@ -97,12 +97,45 @@ mechanical audit (code, not LLM) verifies every [n] points at evidence
 that was actually retrieved — including a warning when a draft cites
 nothing at all.
 
+The agents reply in **structured JSON** (claims with citation numbers;
+verdicts keyed by claim id), so the report renders from typed data
+instead of free-text markdown. The parsing layer is deliberately
+defensive: replies are extracted tolerantly (fences, preamble, trailing
+commentary), validated and normalized, retried once on malformed JSON,
+and a section that still fails falls back to free text and is flagged
+in the report's audit — the pipeline never crashes on a bad model
+reply. Verdict counts come from the typed data (code-counted), never
+from the model's own arithmetic.
+
 Honest limits to know: a small local model (e.g. llama3.2:3b) produces
 generic analyst prose and a critic that over-flags subjective-but-
 accurate claims, so read reports critically — and the same model on a
 CPU-only machine makes a full report take several minutes. Both are
 better with a stronger model and faster hardware; the architecture is
 provider-agnostic.
+
+## Evaluation harness
+
+Scores the RAG pipeline against hand-labeled questions
+(`tests/fixtures/eval_questions.json`, each labeling which posts are
+relevant):
+
+- **retrieval** — precision@k, recall@k, MRR, nDCG@k of the vector
+  index's top-k
+- **answer** (`--with-answers`) — citation precision/recall of the LLM
+  answer: of the posts it cites, how many are relevant, and of the
+  relevant posts, how many got cited
+
+```bash
+python run_eval.py                    # retrieval only — fast, no LLM, CI-safe
+python run_eval.py --with-answers     # + LLM answers and citation scores
+python run_eval.py --with-answers --limit 4
+python run_eval.py --top 8 --out data/reports/eval_report.md
+```
+
+The markdown report lands in `data/reports/`. Retrieval-only runs need
+no LLM at all, so they can gate CI on every push; answer runs need the
+same provider as `run_ask.py`.
 
 ## Run
 
@@ -118,6 +151,10 @@ python run_pipeline.py [--limit 25]
 ```
 tests/
   test_vector_search.py  # sqlite-vec vs numpy cosine regression suite
+  test_agents.py         # agent plumbing: parsing, audits, typed verdicts
+  test_eval.py           # retrieval/answer metric math
+  fixtures/
+    eval_questions.json  # hand-labeled eval questions (relevant post ids)
 conftest.py              # pytest sys.path bootstrap (empty)
 market_intel/
   config.py     # competitors + queries + chunk/embed knobs (one place to edit)
@@ -129,12 +166,14 @@ market_intel/
   vector.py     # sqlite-vec vec0 index over chunks + cosine search
   llm.py        # pluggable LLM client (ollama / openai / custom)
   answer.py     # grounded Q&A: evidence prompt + citation validation
-  agents.py     # Phase 4: five agents + report assembly (research..critic)
+  agents.py     # Phase 4: five agents, typed JSON sections, report assembly
+  eval.py       # retrieval/answer metrics for the evaluation harness
 run_pipeline.py # CLI: fetch -> clean -> store
 run_index.py    # CLI: chunk + embed -> vector index
 run_search.py   # CLI: semantic search over the index
 run_ask.py      # CLI: evidence-backed Q&A with citations
 run_report.py   # CLI: multi-agent market report
+run_eval.py     # CLI: evaluation harness (retrieval + answer quality)
 data/           # raw JSON dumps + market_intel.db + reports/ (gitignored)
 ```
 
@@ -145,4 +184,5 @@ data/           # raw JSON dumps + market_intel.db + reports/ (gitignored)
 3. ✅ Phase 3 — LLM: grounded Q&A with evidence and citations
 4. ✅ Phase 4 — Agents: research → competitor → customer → strategy → critic
 5. ⬜ Phase 5 — n8n: scheduled workflow + notifications
-6. ⬜ Phase 6 — Production: FastAPI, Docker, env vars, eval, deploy
+6. ⬜ Phase 6 — Production: FastAPI, Docker, env vars, eval (harness in
+   place — `run_eval.py`), deploy

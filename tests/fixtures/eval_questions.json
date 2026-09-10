@@ -1,0 +1,67 @@
+[
+  {
+    "question": "Why do app developers complain about Shopify's payouts?",
+    "competitor": "shopify",
+    "relevant": ["hackernews_3945898"]
+  },
+  {
+    "question": "How do Shopify apps migrate to React Native's new architecture?",
+    "competitor": "shopify",
+    "relevant": [
+      "hackernews_45145333",
+      "hackernews_45156184",
+      "hackernews_45167922",
+      "hackernews_45225217",
+      "hackernews_45238680"
+    ]
+  },
+  {
+    "question": "How can I migrate my store from Shopify to WooCommerce?",
+    "relevant": ["hackernews_48051554", "hackernews_25082532"]
+  },
+  {
+    "question": "Do AI shopping agents break Shopify stores at checkout?",
+    "competitor": "shopify",
+    "relevant": ["hackernews_49396489", "hackernews_49531436"]
+  },
+  {
+    "question": "Are Shopify plugins secure, or full of vulnerabilities?",
+    "competitor": "shopify",
+    "relevant": ["hackernews_49490475", "hackernews_49510324"]
+  },
+  {
+    "question": "What is new in the WooCommerce checkout experience?",
+    "competitor": "woocommerce",
+    "relevant": ["hackernews_37174224"]
+  },
+  {
+    "question": "What tools help WooCommerce merchants keep subscribers?",
+    "competitor": "woocommerce",
+    "relevant": ["hackernews_48678731", "hackernews_48765438"]
+  },
+  {
+    "question": "Why did BigCommerce move its platform to Google Cloud?",
+    "competitor": "bigcommerce",
+    "relevant": ["hackernews_19004306"]
+  },
+  {
+    "question": "Why do merchants switch between hosted and self-hosted e-commerce platforms?",
+    "relevant": [
+      "hackernews_6688764",
+      "hackernews_24729567",
+      "hackernews_36588600",
+      "hackernews_12209490",
+      "hackernews_46116299"
+    ]
+  },
+  {
+    "question": "Can AI shopping agents find and buy from my store?",
+    "relevant": [
+      "hackernews_49512951",
+      "hackernews_46845565",
+      "hackernews_48721079",
+      "hackernews_49200345",
+      "hackernews_49396489"
+    ]
+  }
+]
