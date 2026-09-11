@@ -31,7 +31,10 @@ class Embedder:
         if self._model is None:
             from fastembed import TextEmbedding
 
-            self._model = TextEmbedding(model_name=self.model_name)
+            self._model = TextEmbedding(
+                model_name=self.model_name,
+                cache_dir=config.EMBED_CACHE_DIR or None,
+            )
         return self._model
 
     def embed_documents(self, texts: list[str]) -> np.ndarray:

@@ -131,11 +131,43 @@ python run_eval.py                    # retrieval only — fast, no LLM, CI-safe
 python run_eval.py --with-answers     # + LLM answers and citation scores
 python run_eval.py --with-answers --limit 4
 python run_eval.py --top 8 --out data/reports/eval_report.md
+python run_eval.py --db /tmp/ci.db    # score a different corpus
+python run_eval.py --min-mrr 0.8 --min-recall 0.7   # quality gate (exit 1)
 ```
 
 The markdown report lands in `data/reports/`. Retrieval-only runs need
 no LLM at all, so they can gate CI on every push; answer runs need the
-same provider as `run_ask.py`.
+same provider as `run_ask.py`. `--min-mrr` / `--min-recall` turn a run
+into a gate: the process exits 1 if an average drops below the
+threshold, which is exactly how CI fails a regression.
+
+The corpus itself is gitignored, so `run_corpus.py` can move it in and
+out of the repo as plain JSON — `export` dumps the cleaned posts (text
+only, no embeddings) and `seed` rebuilds a DB plus vector index from
+them, re-embedding with the local model:
+
+```bash
+python run_corpus.py export                  # DB -> tests/fixtures/ci_corpus.json
+python run_corpus.py seed --db /tmp/ci.db    # fixture -> fresh DB + index
+```
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push, PR, and manual dispatch,
+in one job:
+
+1. **test suite** — `python -m pytest tests/` (40 tests: sqlite-vec vs
+   numpy regression, agent plumbing, metric math)
+2. **retrieval-only eval** — rebuilds the corpus from
+   `tests/fixtures/ci_corpus.json` via `run_corpus.py seed`, then runs
+   `run_eval.py --min-mrr 0.8 --min-recall 0.7` and uploads the report
+   as a build artifact
+
+Two details make it work without secrets or network flakiness: the
+corpus is seeded from the checked-in fixture (no Hacker News calls), and
+retrieval needs no LLM — so the job is deterministic and runs on a
+public runner. The one download is the bge-small model, cached between
+runs via `actions/cache` keyed on `requirements.txt`.
 
 ## Run
 
@@ -155,7 +187,9 @@ tests/
   test_eval.py           # retrieval/answer metric math
   fixtures/
     eval_questions.json  # hand-labeled eval questions (relevant post ids)
+    ci_corpus.json       # cleaned corpus for CI (text only, no embeddings)
 conftest.py              # pytest sys.path bootstrap (empty)
+.github/workflows/ci.yml # CI: pytest + retrieval-only eval on every push
 market_intel/
   config.py     # competitors + queries + chunk/embed knobs (one place to edit)
   fetch.py      # API calls -> raw JSON items
@@ -174,6 +208,7 @@ run_search.py   # CLI: semantic search over the index
 run_ask.py      # CLI: evidence-backed Q&A with citations
 run_report.py   # CLI: multi-agent market report
 run_eval.py     # CLI: evaluation harness (retrieval + answer quality)
+run_corpus.py   # CLI: export/seed the corpus fixture (network-free CI)
 data/           # raw JSON dumps + market_intel.db + reports/ (gitignored)
 ```
 

@@ -38,6 +38,11 @@ CHUNK_OVERLAP_WORDS = 40
 # first use, then cached on disk.
 EMBED_MODEL = "BAAI/bge-small-en-v1.5"
 
+# Where fastembed stores the downloaded model. Empty = the library's own
+# default (a temp dir). CI sets this to a known path so the model can be
+# cached between runs instead of re-downloaded on every push.
+EMBED_CACHE_DIR = os.environ.get("FASTEMBED_CACHE_DIR", "")
+
 # --- Phase 3: LLM (evidence-backed answering) ---
 # "auto" picks OpenAI if OPENAI_API_KEY is set, else Ollama if it
 # responds on localhost:11434. Override with LLM_PROVIDER=openai|ollama|custom.

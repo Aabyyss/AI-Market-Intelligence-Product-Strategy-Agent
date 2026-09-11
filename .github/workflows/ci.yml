@@ -1,0 +1,74 @@
+name: CI
+
+# Runs on every push and PR: the unit/regression suite, then a
+# retrieval-only evaluation of the RAG index.
+#
+# The corpus is not committed (data/ is gitignored), so the eval job
+# rebuilds one from tests/fixtures/ci_corpus.json with run_corpus.py —
+# no Hacker News access needed. Embeddings are recomputed locally, so the
+# only download is the bge-small model, which is cached between runs.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  # Put the model somewhere cacheable instead of fastembed's temp default.
+  FASTEMBED_CACHE_DIR: ${{ github.workspace }}/.fastembed_cache
+
+jobs:
+  test-and-eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements*.txt
+
+      - name: Install dependencies
+        run: |
+          mkdir -p "$FASTEMBED_CACHE_DIR"
+          pip install -r requirements-dev.txt
+
+      - name: Cache the embedding model
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.FASTEMBED_CACHE_DIR }}
+          key: fastembed-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-bge-small-en-v1.5-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            fastembed-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-bge-small-en-v1.5-
+
+      - name: Run the test suite
+        run: python -m pytest tests/ -v
+
+      - name: Build the eval corpus from the tracked fixture
+        run: python run_corpus.py seed
+
+      # Retrieval-only: no LLM and no API key required. The thresholds are
+      # a regression gate — the fixture reproduces the real corpus, so a
+      # drop below them means chunking/embedding/search actually changed.
+      - name: Retrieval-only evaluation (quality gate)
+        run: |
+          python run_eval.py --min-mrr 0.8 --min-recall 0.7 \
+            --out data/reports/ci_eval.md
+
+      - name: Upload the eval report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report
+          path: data/reports/ci_eval.md
+          if-no-files-found: ignore

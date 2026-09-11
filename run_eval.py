@@ -13,9 +13,14 @@ Usage:
     python run_eval.py --with-answers        # + LLM answers and citation scores
     python run_eval.py --with-answers --limit 4
     python run_eval.py --top 8 --out data/reports/eval_report.md
+    python run_eval.py --db /tmp/ci.db       # score a different corpus
 
 The report lands in data/reports/ (or --out). Retrieval-only runs need
 no LLM at all, so they are fast and CI-safe.
+
+``--min-mrr`` / ``--min-recall`` turn the run into a quality gate: the
+process exits 1 if an average falls below the threshold, which is how CI
+fails a push that regresses retrieval.
 """
 import argparse
 import json
@@ -197,7 +202,8 @@ def render_report(rows: list[dict], top_k: int, provider: str | None,
 
 
 def main(questions_path: str, top_k: int, with_answers: bool,
-         provider: str | None, limit: int | None, out: str | None) -> None:
+         provider: str | None, limit: int | None, out: str | None,
+         db: str, min_mrr: float | None, min_recall: float | None) -> None:
     questions = load_questions(questions_path)
     if limit:
         questions = questions[:limit]
@@ -211,7 +217,7 @@ def main(questions_path: str, top_k: int, with_answers: bool,
             sys.exit(1)
     model = model_for(provider) if provider else None
 
-    conn = connect(DB_PATH)
+    conn = connect(db)
     corpus = conn.execute("SELECT COUNT(*) FROM posts").fetchone()[0]
 
     # Sanity-check the labels against the corpus (label drift warning).
@@ -259,6 +265,24 @@ def main(questions_path: str, top_k: int, with_answers: bool,
               f"cit-recall={mean([r['cit_recall'] for r in rows]):.3f}")
     print(f"report     : {out_path}")
 
+    # Quality gate: CI fails the push when retrieval regresses past these.
+    avg_mrr = mean([r["mrr"] for r in rows])
+    avg_recall = mean([r["recall"] for r in rows])
+    failures = []
+    if min_mrr is not None and avg_mrr < min_mrr:
+        failures.append(f"MRR {avg_mrr:.3f} < --min-mrr {min_mrr:.3f}")
+    if min_recall is not None and avg_recall < min_recall:
+        failures.append(
+            f"recall@{top_k} {avg_recall:.3f} < --min-recall {min_recall:.3f}"
+        )
+    if failures:
+        print("\ngate       : FAIL")
+        for f in failures:
+            print(f"  {f}")
+        sys.exit(1)
+    if min_mrr is not None or min_recall is not None:
+        print("gate       : PASS")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
@@ -274,6 +298,12 @@ if __name__ == "__main__":
                         help="only evaluate the first N questions (quick runs)")
     parser.add_argument("--out", default=None,
                         help="write the eval report to this path")
+    parser.add_argument("--db", default=DB_PATH,
+                        help=f"SQLite corpus to score (default: {DB_PATH})")
+    parser.add_argument("--min-mrr", type=float, default=None,
+                        help="exit 1 if average MRR is below this (quality gate)")
+    parser.add_argument("--min-recall", type=float, default=None,
+                        help="exit 1 if average recall@k is below this (quality gate)")
     args = parser.parse_args()
     main(args.questions, args.top, args.with_answers, args.provider,
-         args.limit, args.out)
+         args.limit, args.out, args.db, args.min_mrr, args.min_recall)
