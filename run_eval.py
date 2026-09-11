@@ -14,16 +14,20 @@ Usage:
     python run_eval.py --with-answers --limit 4
     python run_eval.py --top 8 --out data/reports/eval_report.md
     python run_eval.py --db /tmp/ci.db       # score a different corpus
+    python run_eval.py --summary             # also render on the CI run page
 
 The report lands in data/reports/ (or --out). Retrieval-only runs need
 no LLM at all, so they are fast and CI-safe.
 
 ``--min-mrr`` / ``--min-recall`` turn the run into a quality gate: the
 process exits 1 if an average falls below the threshold, which is how CI
-fails a push that regresses retrieval.
+fails a push that regresses retrieval. ``--summary`` appends the report
+(and the gate outcome) to $GITHUB_STEP_SUMMARY, so the numbers show up on
+the run page instead of only inside a downloaded artifact.
 """
 import argparse
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -201,9 +205,59 @@ def render_report(rows: list[dict], top_k: int, provider: str | None,
     return "\n".join(lines)
 
 
+def gate_result(top_k: int, avg_mrr: float, avg_recall: float,
+                min_mrr: float | None, min_recall: float | None) -> dict:
+    """Check the retrieval averages against the requested thresholds.
+
+    The checks and their outcomes live in one place so the console output
+    and the CI job summary can never disagree about what was compared.
+    No thresholds requested -> no checks, and the gate passes trivially.
+    """
+    checks = []
+    if min_mrr is not None:
+        checks.append({"label": "MRR", "value": avg_mrr, "min": min_mrr})
+    if min_recall is not None:
+        checks.append({"label": f"recall@{top_k}", "value": avg_recall,
+                       "min": min_recall})
+    failures = [c for c in checks if c["value"] < c["min"]]
+    return {"checks": checks, "failures": failures, "passed": not failures}
+
+
+def render_gate(gate: dict) -> str:
+    """Markdown block reporting the gate outcome (for the job summary)."""
+    lines = ["", "---", "", "### CI gate", ""]
+    if not gate["checks"]:
+        lines.append("_No thresholds requested — this run only records the "
+                     "numbers._")
+    for c in gate["checks"]:
+        mark = "PASS" if c["value"] >= c["min"] else "FAIL"
+        lines.append(
+            f"- `{c['label']}`: {c['value']:.3f} "
+            f"(threshold {c['min']:.3f}) — **{mark}**"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def write_step_summary(markdown: str) -> str | None:
+    """Append markdown to GitHub Actions' job summary file.
+
+    Actions exports the file path as $GITHUB_STEP_SUMMARY; anything
+    appended to it is rendered on the run page, so the eval table is
+    visible without downloading the artifact. Returns the path written,
+    or None when not running under Actions (a local no-op).
+    """
+    path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not path:
+        return None
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(markdown if markdown.endswith("\n") else markdown + "\n")
+    return path
+
+
 def main(questions_path: str, top_k: int, with_answers: bool,
          provider: str | None, limit: int | None, out: str | None,
-         db: str, min_mrr: float | None, min_recall: float | None) -> None:
+         db: str, min_mrr: float | None, min_recall: float | None,
+         summary: bool) -> None:
     questions = load_questions(questions_path)
     if limit:
         questions = questions[:limit]
@@ -255,10 +309,13 @@ def main(questions_path: str, top_k: int, with_answers: bool,
     )
     out_path.write_text(md, encoding="utf-8")
 
+    avg_mrr = mean([r["mrr"] for r in rows])
+    avg_recall = mean([r["recall"] for r in rows])
+
     print("\naverages:")
     print(f"  retrieval : P@{top_k}={mean([r['precision'] for r in rows]):.3f} "
-          f"R@{top_k}={mean([r['recall'] for r in rows]):.3f} "
-          f"MRR={mean([r['mrr'] for r in rows]):.3f} "
+          f"R@{top_k}={avg_recall:.3f} "
+          f"MRR={avg_mrr:.3f} "
           f"nDCG@{top_k}={mean([r['ndcg'] for r in rows]):.3f}")
     if with_answers:
         print(f"  answers   : cit-precision={mean([r['cit_precision'] for r in rows]):.3f} "
@@ -266,22 +323,22 @@ def main(questions_path: str, top_k: int, with_answers: bool,
     print(f"report     : {out_path}")
 
     # Quality gate: CI fails the push when retrieval regresses past these.
-    avg_mrr = mean([r["mrr"] for r in rows])
-    avg_recall = mean([r["recall"] for r in rows])
-    failures = []
-    if min_mrr is not None and avg_mrr < min_mrr:
-        failures.append(f"MRR {avg_mrr:.3f} < --min-mrr {min_mrr:.3f}")
-    if min_recall is not None and avg_recall < min_recall:
-        failures.append(
-            f"recall@{top_k} {avg_recall:.3f} < --min-recall {min_recall:.3f}"
-        )
-    if failures:
-        print("\ngate       : FAIL")
-        for f in failures:
-            print(f"  {f}")
+    gate = gate_result(top_k, avg_mrr, avg_recall, min_mrr, min_recall)
+
+    # Publish before exiting, so a FAILED gate is still visible on the run
+    # page (the runner renders the summary whether or not the step fails).
+    if summary:
+        published = write_step_summary(md + render_gate(gate))
+        print(f"summary    : {published}" if published else
+              "summary    : $GITHUB_STEP_SUMMARY is unset (not running under "
+              "GitHub Actions) — skipped")
+
+    if gate["checks"]:
+        print(f"\ngate       : {'PASS' if gate['passed'] else 'FAIL'}")
+        for c in gate["failures"]:
+            print(f"  {c['label']} {c['value']:.3f} < {c['min']:.3f}")
+    if not gate["passed"]:
         sys.exit(1)
-    if min_mrr is not None or min_recall is not None:
-        print("gate       : PASS")
 
 
 if __name__ == "__main__":
@@ -304,6 +361,10 @@ if __name__ == "__main__":
                         help="exit 1 if average MRR is below this (quality gate)")
     parser.add_argument("--min-recall", type=float, default=None,
                         help="exit 1 if average recall@k is below this (quality gate)")
+    parser.add_argument("--summary", action="store_true",
+                        help="append the report + gate outcome to "
+                             "$GITHUB_STEP_SUMMARY (GitHub Actions run page)")
     args = parser.parse_args()
     main(args.questions, args.top, args.with_answers, args.provider,
-         args.limit, args.out, args.db, args.min_mrr, args.min_recall)
+         args.limit, args.out, args.db, args.min_mrr, args.min_recall,
+         args.summary)

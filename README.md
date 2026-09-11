@@ -133,13 +133,17 @@ python run_eval.py --with-answers --limit 4
 python run_eval.py --top 8 --out data/reports/eval_report.md
 python run_eval.py --db /tmp/ci.db    # score a different corpus
 python run_eval.py --min-mrr 0.8 --min-recall 0.7   # quality gate (exit 1)
+python run_eval.py --summary          # also render on the CI run page
 ```
 
 The markdown report lands in `data/reports/`. Retrieval-only runs need
 no LLM at all, so they can gate CI on every push; answer runs need the
 same provider as `run_ask.py`. `--min-mrr` / `--min-recall` turn a run
 into a gate: the process exits 1 if an average drops below the
-threshold, which is exactly how CI fails a regression.
+threshold, which is exactly how CI fails a regression. `--summary`
+appends the report and the gate outcome to `$GITHUB_STEP_SUMMARY`, so
+the numbers appear on the run page — including when the gate fails —
+instead of only inside a downloaded artifact.
 
 The corpus itself is gitignored, so `run_corpus.py` can move it in and
 out of the repo as plain JSON — `export` dumps the cleaned posts (text
@@ -160,8 +164,9 @@ in one job:
    numpy regression, agent plumbing, metric math)
 2. **retrieval-only eval** — rebuilds the corpus from
    `tests/fixtures/ci_corpus.json` via `run_corpus.py seed`, then runs
-   `run_eval.py --min-mrr 0.8 --min-recall 0.7` and uploads the report
-   as a build artifact
+   `run_eval.py --min-mrr 0.8 --min-recall 0.7 --summary`, which renders
+   the report and gate outcome on the run page and also uploads it as a
+   build artifact
 
 Two details make it work without secrets or network flakiness: the
 corpus is seeded from the checked-in fixture (no Hacker News calls), and
@@ -185,6 +190,7 @@ tests/
   test_vector_search.py  # sqlite-vec vs numpy cosine regression suite
   test_agents.py         # agent plumbing: parsing, audits, typed verdicts
   test_eval.py           # retrieval/answer metric math
+  test_eval_cli.py       # run_eval gate + job-summary plumbing
   fixtures/
     eval_questions.json  # hand-labeled eval questions (relevant post ids)
     ci_corpus.json       # cleaned corpus for CI (text only, no embeddings)

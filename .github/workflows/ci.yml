@@ -60,10 +60,13 @@ jobs:
       # Retrieval-only: no LLM and no API key required. The thresholds are
       # a regression gate — the fixture reproduces the real corpus, so a
       # drop below them means chunking/embedding/search actually changed.
+      # --summary renders the report and gate outcome on the run page, so
+      # the numbers are visible without downloading the artifact (and it
+      # still publishes when the gate fails).
       - name: Retrieval-only evaluation (quality gate)
         run: |
           python run_eval.py --min-mrr 0.8 --min-recall 0.7 \
-            --out data/reports/ci_eval.md
+            --out data/reports/ci_eval.md --summary
 
       - name: Upload the eval report
         if: always()
