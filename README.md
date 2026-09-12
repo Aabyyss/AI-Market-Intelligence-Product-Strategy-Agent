@@ -160,8 +160,9 @@ python run_corpus.py seed --db /tmp/ci.db    # fixture -> fresh DB + index
 `.github/workflows/ci.yml` runs on every push, PR, and manual dispatch,
 in one job:
 
-1. **test suite** — `python -m pytest tests/` (40 tests: sqlite-vec vs
-   numpy regression, agent plumbing, metric math)
+1. **test suite** — `python -m pytest tests/` (84 tests: sqlite-vec vs
+   numpy regression, agent plumbing, metric math, API and job
+   behaviour, fetch retry/backoff)
 2. **retrieval-only eval** — rebuilds the corpus from
    `tests/fixtures/ci_corpus.json` via `run_corpus.py seed`, then runs
    `run_eval.py --min-mrr 0.8 --min-recall 0.7 --summary`, which renders
@@ -181,7 +182,97 @@ python -m venv .venv
 # Windows:  .venv\Scripts\python -m pip install -r requirements.txt
 # macOS/Linux: .venv/bin/python -m pip install -r requirements.txt
 python run_pipeline.py [--limit 25]
+python run_index.py
+python run_api.py            # http://127.0.0.1:8000/docs
 ```
+
+## Phase 5: n8n orchestration — schedule, notify, recover
+
+n8n owns the business workflow: when a run happens, what to do when it
+fails, and who gets told. Python owns the intelligence. They meet at the
+HTTP API — n8n never imports this code, and this code never knows n8n
+exists. Two importable workflows in `n8n/` (see `n8n/README.md`):
+
+```text
+06:00  corpus_refresh.json  POST /pipeline/refresh -> poll  (fetch, clean, store, reindex)
+07:00  market_report.json   POST /reports           -> poll  (five agents -> report)
+                            then: Slack summary, or a no-op
+```
+
+The reason both look like *start a job, then poll* is not stylistic: a
+full report is minutes of LLM work. An n8n HTTP node held open for that
+would time out and **retry**, running the whole pipeline twice. So the
+API returns `202` with a job id and the workflow polls `GET /jobs/{id}`
+on a Wait node. A single Code node maps job state to
+`wait`/`done`/`failed`/`timeout` and carries the attempt counter, so the
+loop condition lives in one place; bounded attempts turn a wedged API
+into a Slack alert instead of an execution that never ends. The refresh
+notifies only when it actually found something — a daily "0 new posts"
+message just trains people to mute the channel.
+
+The Slack webhook comes from an environment variable, so the exported
+workflow JSON is safe to commit. Full setup in `n8n/README.md`.
+
+## Phase 6: the service and its container
+
+`market_intel/api.py` exposes the whole pipeline over HTTP, so something
+other than a human can drive it:
+
+| endpoint | what it does |
+|---|---|
+| `GET /health` | corpus size, embedding model, whether an LLM is reachable |
+| `POST /search` | semantic search over the vector index |
+| `POST /ask` | evidence-backed answer + validated citations |
+| `POST /reports` | queue a market report → `202` + job id |
+| `POST /pipeline/refresh` | queue a corpus refresh → `202` + job id |
+| `GET /jobs`, `/jobs/latest`, `/jobs/{id}` | job status + typed result |
+| `GET /jobs/{id}/markdown` | the rendered report |
+| `POST /eval` | retrieval metrics against the labeled questions |
+
+```bash
+python run_api.py                       # local
+python run_api.py --host 0.0.0.0        # in a container
+curl -s -X POST localhost:8000/reports -H 'content-type: application/json' \
+  -d '{"brief":"fees and developer payouts"}'
+```
+
+Production habits this phase adds, all of them visible in the code:
+
+- **Jobs, not open connections.** Both long operations return a job id;
+  one worker by default, because the pipeline is CPU-bound and a second
+  concurrent report only slows the first.
+- **A request id on every log line**, echoed back in `X-Request-ID`. The
+  job worker copies the submitting request's context into its thread, so
+  a report started at 09:00 still logs under the id its caller was given.
+- **Errors carry the request id** and never leak a traceback; `/health`
+  reports an unreachable LLM instead of failing, because a health check
+  that 500s is a health check you cannot read.
+- **Config from the environment** (`.env.example` documents every knob).
+
+```bash
+docker compose up --build       # api + local Ollama, model baked in
+```
+
+The image installs dependencies first (cacheable layer), **smoke-tests
+sqlite-vec at build time** (loading the extension depends on the host
+SQLite build — better a failed build than a failed first search), bakes
+the embedding model in so a cold container answers immediately, and runs
+as a non-root user. `data/` is a bind mount, so the corpus and the
+generated reports land on the host.
+
+Honest limits: jobs live in memory, so a restart loses job history (not
+data — reports are already on disk), and running more than one uvicorn
+process needs `MARKET_INTEL_WORKERS` raised to match, or a job started
+on one worker is invisible to the other. A database-backed queue is the
+next step if this ever runs on more than one machine.
+
+## Demo
+
+- `docs/demo.html` — a self-playing 75-second reel of the whole system.
+  Open it and screen-record the window: no editing, no external assets.
+- `docs/DEMO.md` — a 90-second live screen-recording script (shot list,
+  exact commands, narration), an AI-video-generator prompt, and the
+  three claims that are safe to make about this project.
 
 ## Layout
 
@@ -191,23 +282,34 @@ tests/
   test_agents.py         # agent plumbing: parsing, audits, typed verdicts
   test_eval.py           # retrieval/answer metric math
   test_eval_cli.py       # run_eval gate + job-summary plumbing
+  test_api.py            # the service end to end (no LLM, no network)
+  test_fetch.py          # retry/backoff and partial-failure behaviour
   fixtures/
     eval_questions.json  # hand-labeled eval questions (relevant post ids)
     ci_corpus.json       # cleaned corpus for CI (text only, no embeddings)
 conftest.py              # pytest sys.path bootstrap (empty)
 .github/workflows/ci.yml # CI: pytest + retrieval-only eval on every push
+n8n/
+  corpus_refresh.json    # 06:00 — refresh the corpus + rebuild the index
+  market_report.json     # 07:00 — generate the report + notify Slack
+  README.md              # import steps, env vars, extension ideas
+docs/
+  demo.html              # self-playing 75s walkthrough (screen-recordable)
+  DEMO.md                # recording script, AI-video prompt, voiceover
 market_intel/
-  config.py     # competitors + queries + chunk/embed knobs (one place to edit)
-  fetch.py      # API calls -> raw JSON items
-  clean.py      # normalize, drop junk, dedupe -> records
-  store.py      # SQLite schema + idempotent inserts
-  chunk.py      # split posts into overlapping chunks
-  embed.py      # local embedding model wrapper (fastembed/bge)
-  vector.py     # sqlite-vec vec0 index over chunks + cosine search
-  llm.py        # pluggable LLM client (ollama / openai / custom)
-  answer.py     # grounded Q&A: evidence prompt + citation validation
-  agents.py     # Phase 4: five agents, typed JSON sections, report assembly
-  eval.py       # retrieval/answer metrics for the evaluation harness
+  config.py         # competitors + queries + chunk/embed knobs (one place to edit)
+  fetch.py          # API calls -> raw JSON items (retry + backoff)
+  clean.py          # normalize, drop junk, dedupe -> records
+  store.py          # SQLite schema + idempotent inserts
+  chunk.py          # split posts into overlapping chunks
+  embed.py          # local embedding model wrapper (fastembed/bge)
+  vector.py         # sqlite-vec vec0 index over chunks + cosine search
+  llm.py            # pluggable LLM client (ollama / openai / custom)
+  answer.py         # grounded Q&A: evidence prompt + citation validation
+  agents.py         # Phase 4: five agents, typed JSON sections, report assembly
+  eval.py           # retrieval/answer metrics for the evaluation harness
+  api.py            # Phase 6: FastAPI service (search, ask, jobs, eval)
+  logging_config.py # request ids + one log format for the service
 run_pipeline.py # CLI: fetch -> clean -> store
 run_index.py    # CLI: chunk + embed -> vector index
 run_search.py   # CLI: semantic search over the index
@@ -215,7 +317,10 @@ run_ask.py      # CLI: evidence-backed Q&A with citations
 run_report.py   # CLI: multi-agent market report
 run_eval.py     # CLI: evaluation harness (retrieval + answer quality)
 run_corpus.py   # CLI: export/seed the corpus fixture (network-free CI)
-data/           # raw JSON dumps + market_intel.db + reports/ (gitignored)
+run_api.py      # CLI: serve the API (uvicorn)
+Dockerfile      # model baked in + sqlite-vec smoke-tested at build
+docker-compose.yml # api + local Ollama (with the model service)
+.env.example    # every knob, with defaults
 ```
 
 ## Roadmap
@@ -224,6 +329,18 @@ data/           # raw JSON dumps + market_intel.db + reports/ (gitignored)
 2. ✅ Phase 2 — RAG: chunking, embeddings, vector search, citations
 3. ✅ Phase 3 — LLM: grounded Q&A with evidence and citations
 4. ✅ Phase 4 — Agents: research → competitor → customer → strategy → critic
-5. ⬜ Phase 5 — n8n: scheduled workflow + notifications
-6. ⬜ Phase 6 — Production: FastAPI, Docker, env vars, eval (harness in
-   place — `run_eval.py`), deploy
+5. ✅ Phase 5 — n8n: scheduled workflows (corpus refresh + report) with
+   job polling and Slack notifications
+6. ✅ Phase 6 — Production: FastAPI service (jobs, request ids, uniform
+   errors), Docker + compose, env-var config, evaluation harness gating CI
+
+### Where a v2 would go
+
+- Swap the in-memory job registry for a real queue (Redis/RQ, Celery) so
+  the service can run more than one process — that single-process
+  assumption is the only thing keeping this single-instance today.
+- Add a second source. Reddit needs OAuth credentials now, but the
+  fetch/clean/store pipeline is source-agnostic by design; the work is in
+  the cleaning rules and re-labeling the eval set.
+- Feed the strategy section's ranked opportunities into a PRD template —
+  the deliverable this whole market map exists to produce.

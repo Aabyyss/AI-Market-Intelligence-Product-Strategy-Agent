@@ -1,0 +1,301 @@
+{
+  "name": "Market Intel — daily report",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "hours", "hoursInterval": 24, "triggerAtHour": 7 }
+          ]
+        }
+      },
+      "id": "a1000000-0000-4000-8000-000000000001",
+      "name": "Daily 07:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-200, 300]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cfg-api",
+              "name": "api_base",
+              "value": "={{ $env.MARKET_INTEL_API_BASE || 'http://127.0.0.1:8000' }}",
+              "type": "string"
+            },
+            {
+              "id": "cfg-brief",
+              "name": "brief",
+              "value": "={{ $env.MARKET_INTEL_BRIEF || 'fees, payouts and platform switching' }}",
+              "type": "string"
+            },
+            {
+              "id": "cfg-per-query",
+              "name": "per_query",
+              "value": "={{ Number($env.MARKET_INTEL_PER_QUERY || 4) }}",
+              "type": "number"
+            },
+            {
+              "id": "cfg-max",
+              "name": "max_attempts",
+              "value": "={{ Number($env.MARKET_INTEL_MAX_POLLS || 40) }}",
+              "type": "number"
+            },
+            {
+              "id": "cfg-wait",
+              "name": "poll_seconds",
+              "value": "={{ Number($env.MARKET_INTEL_POLL_SECONDS || 45) }}",
+              "type": "number"
+            },
+            {
+              "id": "cfg-slack",
+              "name": "slack_webhook",
+              "value": "={{ $env.SLACK_WEBHOOK_URL || '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000002",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [20, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.api_base }}/reports",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ brief: $json.brief, per_query: $json.per_query }) }}",
+        "options": { "timeout": 30000 }
+      },
+      "id": "a1000000-0000-4000-8000-000000000003",
+      "name": "Start report job",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [260, 300],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Carry the config alongside the job so every later node has both.\nconst cfg = $('Config').first().json;\nconst job = $input.first().json;\nreturn [{ json: { ...cfg, job_id: job.job_id, status: job.status, attempt: 0 } }];"
+      },
+      "id": "a1000000-0000-4000-8000-000000000004",
+      "name": "Init state",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "amount": "={{ $json.poll_seconds }}",
+        "unit": "seconds"
+      },
+      "id": "a1000000-0000-4000-8000-000000000005",
+      "name": "Wait",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [740, 160],
+      "webhookId": "ba1c6a1e-0001-4000-8000-000000000005"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.api_base }}/jobs/{{ $json.job_id }}",
+        "options": { "timeout": 30000 }
+      },
+      "id": "a1000000-0000-4000-8000-000000000006",
+      "name": "Poll job",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 160],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// One job, three outcomes. A report on a CPU box takes minutes,\n// so most polls land here as \"still running\".\nconst cfg = $('Config').first().json;\nconst item = $input.first().json;\nconst status = item.status || 'unknown';\n\nif (status === 'failed') {\n  return [{ json: { ...item, route: 'failed', error: item.error || 'job failed' } }];\n}\nif (status === 'queued' || status === 'running') {\n  const attempt = (item.attempt || 0) + 1;\n  if (attempt >= cfg.max_attempts) {\n    return [{ json: { ...item, route: 'timeout', error: `still ${status} after ${attempt} polls` } }];\n  }\n  return [{ json: { ...item, attempt, route: 'wait' } }];\n}\nreturn [{ json: { ...item, route: 'done' } }];"
+      },
+      "id": "a1000000-0000-4000-8000-000000000007",
+      "name": "Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1180, 160]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "if-wait",
+              "leftValue": "={{ $json.route }}",
+              "rightValue": "wait",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000008",
+      "name": "Still running?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1400, 160]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "if-failed",
+              "leftValue": "={{ $json.route }}",
+              "rightValue": "done",
+              "operator": { "type": "string", "operation": "notEquals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000009",
+      "name": "Failed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1620, 300]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Slack message from the typed summary — verdicts and citation\n// health are the two numbers worth reading before the report.\nconst cfg = $('Config').first().json;\nconst item = $input.first().json;\nconst s = item.result || {};\nconst v = s.verdicts || {};\nconst a = s.citation_audit || {};\nconst lines = [\n  `:bar_chart: *Market report ready* — ${s.brief || cfg.brief}`,\n  `Model: ${s.model || 'n/a'} | evidence: ${s.evidence || 0} posts`,\n  `Critic: ${v.SUPPORTED || 0} supported, ${v.PARTIAL || 0} partial, ${v.UNSUPPORTED || 0} unsupported`,\n  `Citations: ${(a.used || []).length} in-range, ${(a.out_of_range || []).length} out-of-range`,\n  `Report: ${cfg.api_base}/jobs/${item.job_id}/markdown`\n];\nif ((s.unstructured_sections || []).length) {\n  lines.push(`:warning: unstructured sections: ${s.unstructured_sections.join(', ')}`);\n}\nreturn [{ json: { ...cfg, slack_text: lines.join('\\n') } }];"
+      },
+      "id": "a1000000-0000-4000-8000-000000000010",
+      "name": "Format success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1840, 220]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const cfg = $('Config').first().json;\nconst item = $input.first().json;\nreturn [{ json: { ...cfg, slack_text: `:x: *Market report failed* — ${item.error || 'unknown error'}\\nJob: ${cfg.api_base}/jobs/${item.job_id || 'n/a'}` } }];"
+      },
+      "id": "a1000000-0000-4000-8000-000000000011",
+      "name": "Format failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1840, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "if-slack",
+              "leftValue": "={{ $json.slack_webhook }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000012",
+      "name": "Slack configured?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [2060, 220]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.slack_webhook }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $json.slack_text }) }}",
+        "options": { "timeout": 15000 }
+      },
+      "id": "a1000000-0000-4000-8000-000000000013",
+      "name": "Notify Slack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2300, 160]
+    },
+    {
+      "parameters": {},
+      "id": "a1000000-0000-4000-8000-000000000014",
+      "name": "No Slack (done)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [2300, 300]
+    }
+  ],
+  "connections": {
+    "Daily 07:00": { "main": [[{ "node": "Config", "type": "main", "index": 0 }]] },
+    "Config": { "main": [[{ "node": "Start report job", "type": "main", "index": 0 }]] },
+    "Start report job": {
+      "main": [
+        [{ "node": "Init state", "type": "main", "index": 0 }],
+        [{ "node": "Format failure", "type": "main", "index": 0 }]
+      ]
+    },
+    "Init state": { "main": [[{ "node": "Wait", "type": "main", "index": 0 }]] },
+    "Wait": { "main": [[{ "node": "Poll job", "type": "main", "index": 0 }]] },
+    "Poll job": {
+      "main": [
+        [{ "node": "Route", "type": "main", "index": 0 }],
+        [{ "node": "Format failure", "type": "main", "index": 0 }]
+      ]
+    },
+    "Route": { "main": [[{ "node": "Still running?", "type": "main", "index": 0 }]] },
+    "Still running?": {
+      "main": [
+        [{ "node": "Wait", "type": "main", "index": 0 }],
+        [{ "node": "Failed?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Failed?": {
+      "main": [
+        [{ "node": "Format failure", "type": "main", "index": 0 }],
+        [{ "node": "Format success", "type": "main", "index": 0 }]
+      ]
+    },
+    "Format success": { "main": [[{ "node": "Slack configured?", "type": "main", "index": 0 }]] },
+    "Format failure": { "main": [[{ "node": "Slack configured?", "type": "main", "index": 0 }]] },
+    "Slack configured?": {
+      "main": [
+        [{ "node": "Notify Slack", "type": "main", "index": 0 }],
+        [{ "node": "No Slack (done)", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {},
+  "meta": { "instanceId": "market-intel-demo" },
+  "tags": [{ "name": "market-intel" }]
+}

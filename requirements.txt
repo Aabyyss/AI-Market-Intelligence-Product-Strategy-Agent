@@ -3,3 +3,6 @@ numpy>=1.26
 fastembed>=0.3
 sqlite-vec>=0.1.9
 openai>=1.40
+# Phase 6 service layer (run_api.py).
+fastapi>=0.115
+uvicorn[standard]>=0.30

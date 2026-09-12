@@ -1,0 +1,70 @@
+# Phase 6: the whole stack, one command.
+#
+#   docker compose up --build              # api + local LLM (Ollama)
+#   docker compose run --rm api ...        # one-off pipeline commands
+#
+# Then open http://127.0.0.1:8000/docs
+#
+# Two ways to supply the LLM:
+#   1. the `ollama` service below (self-contained; pull a model first,
+#      see the note at the bottom of this file);
+#   2. a provider on the host, or the OpenAI API — then just set
+#      LLM_PROVIDER / OLLAMA_BASE_URL / OPENAI_API_KEY in .env.
+#
+# `data/` is a bind mount, not a named volume, on purpose: the corpus
+# (market_intel.db) and the generated reports are the interesting output
+# and you want them on the host, next to the repo.
+
+services:
+  api:
+    build: .
+    image: market-intel:latest
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false          # runs fine without one (Ollama default)
+    environment:
+      # Inside the compose network the LLM lives at the service name.
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434/v1}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # Report jobs are in-memory per process — keep one worker, and let
+      # the container run one uvicorn process, so /reports is consistent.
+      MARKET_INTEL_WORKERS: ${MARKET_INTEL_WORKERS:-1}
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4).read()"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+  # Local, free, no API key. Remove this service (and point
+  # OLLAMA_BASE_URL at your host) if you already run Ollama elsewhere.
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+volumes:
+  ollama_models:
+
+# First run — the model is not in the image, so pull it once:
+#   docker compose exec ollama ollama pull llama3.2
+#
+# And build the corpus (needs Hacker News access, so run it on the host):
+#   python run_pipeline.py && python run_index.py
+# ...or seed the tracked fixture, which needs no network at all:
+#   python run_corpus.py seed

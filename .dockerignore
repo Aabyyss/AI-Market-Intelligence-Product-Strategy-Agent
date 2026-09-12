@@ -1,0 +1,16 @@
+# Keep the build context small and free of local state / secrets.
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.git/
+.github/
+.freebuff/
+n8n/
+docs/
+tests/
+data/
+*.md
+.env
+.env.*
+!requirements*.txt

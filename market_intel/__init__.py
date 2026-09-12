@@ -8,8 +8,14 @@ and cite the source posts.
 Phase 4: multi-agent layer — research, competitor, customer, strategy,
 and critic agents produce evidence-backed market reports with typed
 JSON sections (claims + citations + verdicts).
-Phase 6 preview: evaluation harness — labeled questions score retrieval
-and answer citation quality (run_eval.py).
+Phase 5: n8n orchestration — scheduled workflows drive the API, poll the
+jobs they start, and notify Slack (n8n/).
+Phase 6: service — FastAPI over the same code (search, ask, report and
+refresh jobs, evaluation), containerised, configured from the
+environment.
+
+Evaluation runs through all of it: labeled questions score retrieval and
+answer citation quality (run_eval.py), and gate CI on every push.
 """
 
-__version__ = "0.5.0"
+__version__ = "1.0.0"
