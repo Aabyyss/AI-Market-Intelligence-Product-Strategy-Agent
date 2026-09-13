@@ -160,7 +160,7 @@ python run_corpus.py seed --db /tmp/ci.db    # fixture -> fresh DB + index
 `.github/workflows/ci.yml` runs on every push, PR, and manual dispatch,
 in one job:
 
-1. **test suite** — `python -m pytest tests/` (84 tests: sqlite-vec vs
+1. **test suite** — `python -m pytest tests/` (85 tests: sqlite-vec vs
    numpy regression, agent plumbing, metric math, API and job
    behaviour, fetch retry/backoff)
 2. **retrieval-only eval** — rebuilds the corpus from
@@ -174,6 +174,24 @@ corpus is seeded from the checked-in fixture (no Hacker News calls), and
 retrieval needs no LLM — so the job is deterministic and runs on a
 public runner. The one download is the bge-small model, cached between
 runs via `actions/cache` keyed on `requirements.txt`.
+
+### Tests must not depend on your machine
+
+The suite passes on a runner with nothing running, and that is enforced
+rather than assumed. `/ask` and `/reports` auto-detect the LLM provider
+per request by probing localhost:11434, so a laptop with Ollama up takes
+a different code path than CI — which is exactly how the *first* CI run
+failed: 7 tests in `tests/test_api.py` got 503s that could never fail
+locally. The `client` fixture now pins the provider, and a guard test
+fails if that pin is ever dropped. To reproduce the runner's conditions:
+
+```bash
+PYTHONPATH=tests python -m pytest tests/ -p ci_sim_plugin -q
+```
+
+`tests/ci_sim_plugin.py` hides every ambient provider — nothing listening
+on the LLM port and no `OPENAI_API_KEY`. It is never loaded implicitly,
+so a plain `pytest tests/` is unaffected.
 
 ## Run
 
@@ -284,6 +302,7 @@ tests/
   test_eval_cli.py       # run_eval gate + job-summary plumbing
   test_api.py            # the service end to end (no LLM, no network)
   test_fetch.py          # retry/backoff and partial-failure behaviour
+  ci_sim_plugin.py       # `-p` plugin: run the suite with no LLM reachable
   fixtures/
     eval_questions.json  # hand-labeled eval questions (relevant post ids)
     ci_corpus.json       # cleaned corpus for CI (text only, no embeddings)

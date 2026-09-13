@@ -12,7 +12,10 @@ Two deliberate choices keep this fast and hermetic:
     embeddings without any network call;
   * no LLM is ever called — the one place that would, ``/ask``, has the
     answer layer stubbed. The suite must pass on a machine with nothing
-    running, same rule the rest of the repo follows.
+    running, same rule the rest of the repo follows. That includes the
+    *provider check*: ``/ask`` and ``/reports`` resolve the LLM per request
+    by probing localhost:11434, so the ``client`` fixture pins the provider
+    rather than trusting whatever happens to be listening.
 
 Run with:
     pip install -r requirements-dev.txt
@@ -44,6 +47,12 @@ def client(corpus_db, tmp_path, monkeypatch):
     """A TestClient wired to the fixture corpus and a throwaway report dir."""
     monkeypatch.setattr(api, "DB_PATH", corpus_db)
     monkeypatch.setattr(api, "REPORT_DIR", str(tmp_path / "reports"))
+    # Pin the provider. /ask and /reports call get_provider() per request,
+    # which auto-detects by probing localhost:11434 — so without this they
+    # 503 on a machine with nothing running (CI) and quietly pass on a box
+    # that happens to have Ollama up. No LLM is ever reached either way:
+    # the tests that get that far stub answer_question / build_report.
+    monkeypatch.setattr(api, "resolve_provider", lambda: "ollama")
     with api._JOBS_LOCK:
         api._JOBS.clear()
     with TestClient(api.app) as test_client:
@@ -250,6 +259,24 @@ def test_ask_without_a_provider_is_503(client, monkeypatch):
     monkeypatch.setattr(api, "get_provider", no_provider)
     resp = client.post("/ask", json={"query": "hello"})
     assert resp.status_code == 503
+
+
+def test_llm_endpoints_do_not_depend_on_an_ambient_provider(client, monkeypatch):
+    """Hide every real provider and check the LLM endpoints still respond.
+
+    This is the regression guard for the first CI run: it failed here while
+    passing on a developer box that was running Ollama, because the provider
+    was auto-detected per request. The ``client`` fixture pins it; if that
+    pin is ever dropped, the real resolver now finds nothing and this fails.
+    """
+    monkeypatch.setattr("market_intel.llm._reachable", lambda *a, **k: False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    stub_answer(monkeypatch, make_sources(2), cited=[1])
+    assert client.post("/ask", json={"query": "fees"}).status_code == 200
+
+    monkeypatch.setattr(api, "build_report", lambda *a, **k: fake_summary())
+    assert client.post("/reports", json={"brief": "fees"}).status_code == 202
 
 
 # --- report jobs -------------------------------------------------------
