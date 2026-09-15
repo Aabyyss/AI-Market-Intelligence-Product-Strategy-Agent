@@ -286,11 +286,21 @@ next step if this ever runs on more than one machine.
 
 ## Demo
 
-- `docs/demo.html` — a self-playing 75-second reel of the whole system.
-  Open it and screen-record the window: no editing, no external assets.
-- `docs/DEMO.md` — a 90-second live screen-recording script (shot list,
-  exact commands, narration), an AI-video-generator prompt, and the
-  three claims that are safe to make about this project.
+**[`docs/demo.mp4`](docs/demo.mp4)** — the whole system in 76 seconds
+(1280x720, 30 fps, 2.4 MB): collection → retrieval → five agents → the report
+and its citation audit → the eval metrics → the CI gate.
+
+[![Watch the demo](docs/demo-poster.png)](docs/demo.mp4)
+
+- `docs/demo.html` — the same reel, self-playing and self-contained. Open it,
+  press `F11`, record the window. Zero tooling, slightly different every take.
+- `python render_demo.py` — re-renders `docs/demo.mp4` from the reel through
+  headless Chrome over the DevTools Protocol, freezing each frame at an exact
+  timestamp so the output is reproducible. Needs a Chromium browser;
+  `pip install imageio-ffmpeg` if you have no ffmpeg on PATH.
+- `docs/DEMO.md` — the live screen-recording script (shot list, exact commands,
+  narration), an AI-video-generator prompt, and the claims that are safe to make
+  about this project.
 
 ## Layout
 
@@ -313,7 +323,9 @@ n8n/
   market_report.json     # 07:00 — generate the report + notify Slack
   README.md              # import steps, env vars, extension ideas
 docs/
-  demo.html              # self-playing 75s walkthrough (screen-recordable)
+  demo.html              # self-playing 76s walkthrough (?render=1 to freeze it)
+  demo.mp4               # the rendered walkthrough (committed)
+  demo-poster.png        # title frame, used in this README
   DEMO.md                # recording script, AI-video prompt, voiceover
 market_intel/
   config.py         # competitors + queries + chunk/embed knobs (one place to edit)
@@ -337,6 +349,7 @@ run_report.py   # CLI: multi-agent market report
 run_eval.py     # CLI: evaluation harness (retrieval + answer quality)
 run_corpus.py   # CLI: export/seed the corpus fixture (network-free CI)
 run_api.py      # CLI: serve the API (uvicorn)
+render_demo.py  # CLI: render docs/demo.html into docs/demo.mp4, frame by frame
 Dockerfile      # model baked in + sqlite-vec smoke-tested at build
 docker-compose.yml # api + local Ollama (with the model service)
 .env.example    # every knob, with defaults

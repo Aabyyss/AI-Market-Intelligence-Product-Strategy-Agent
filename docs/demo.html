@@ -6,7 +6,7 @@
 <style>
   /* ---------------------------------------------------------------
      Self-playing demo reel. Open it in a browser and screen-record the
-     window: ~75 seconds, no editing, no assets, no network.
+     window: ~76 seconds, no editing, no assets, no network.
      Controls: Space = pause/resume, R = restart, click = next scene.
      --------------------------------------------------------------- */
   :root {
@@ -349,7 +349,7 @@
     </p>
     <p class="mono reveal" style="--d:1200;margin-top:10px;font-size:13px;color:var(--dim)">
       CI gate · recall@5 0.820 &gt;= 0.700 <span class="ok">PASS</span> ·
-      MRR 1.000 &gt;= 0.800 <span class="ok">PASS</span> · 84 tests
+      MRR 1.000 &gt;= 0.800 <span class="ok">PASS</span> · 96 tests
     </p>
   </section>
 
@@ -412,10 +412,22 @@
     { id: "s5", ms: 11000, label: "05 · evaluation" },
     { id: "s6", ms: 9000,  label: "06 · shipped" },
   ];
+  const CROSSFADE_MS = 400;
   const stage = document.getElementById("stage");
   const pbar = document.getElementById("pbar");
   const chapter = document.getElementById("chapter");
   const total = SCENES.reduce((a, s) => a + s.ms, 0);
+
+  // ?render=1 turns the reel into something a recorder can address: the rAF
+  // loop is off and seek(ms) pins every animation to an exact point in
+  // virtual time, so the same timestamp always produces the same frame
+  // (render_demo.py drives this over the Chrome DevTools Protocol).
+  const render = new URLSearchParams(location.search).has("render");
+  if (render) {
+    const s = document.createElement("style");
+    s.textContent = ".scene{transition:none}";
+    document.head.appendChild(s);
+  }
 
   let index = 0, elapsed = 0, last = 0, paused = false, raf = 0;
 
@@ -444,6 +456,41 @@
     elapsed = 0;
   }
 
+  // Freeze the reel at `ms` into the whole sequence. Animations are paused
+  // and pinned rather than left running, because a recorder samples when it
+  // wants to — not when the reel does. currentTime includes each element's
+  // own delay, so staggered reveals keep their stagger.
+  function seek(ms) {
+    let start = 0, i = 0;
+    while (i < SCENES.length - 1 && ms >= start + SCENES[i].ms) {
+      start += SCENES[i].ms;
+      i += 1;
+    }
+    const within = Math.max(0, ms - start);
+
+    // Crossfade by hand, because render mode disables the CSS transition: a
+    // paused transition snaps the outgoing scene away immediately and the new
+    // one is still blank for the ~200 ms before its content reveals, which
+    // reads as a dark flash at every scene boundary. Derived from the
+    // timestamp alone — not from whichever scene we happened to be on — so
+    // seeking straight to 43 s looks the same as playing to it.
+    const fade = within < CROSSFADE_MS ? 1 - within / CROSSFADE_MS : 0;
+    SCENES.forEach(function (s, n) {
+      const el = document.getElementById(s.id);
+      el.style.opacity = n === i - 1 && fade > 0 ? String(fade) : "";
+    });
+
+    show(i);
+    const elapsedWithin = within;
+    void stage.offsetWidth; // flush style so the new scene's animations exist
+    document.getAnimations().forEach(function (a) {
+      a.pause();
+      a.currentTime = elapsedWithin;
+    });
+    elapsed = elapsedWithin;
+    pbar.style.width = Math.min(100, ((start + elapsedWithin) / total) * 100) + "%";
+  }
+
   function frame(t) {
     if (!last) last = t;
     if (!paused) elapsed += t - last;
@@ -470,8 +517,13 @@
   });
   stage.addEventListener("click", function () { show(index + 1); });
 
-  show(0);
-  raf = requestAnimationFrame(frame);
+  if (render) {
+    window.__reel = { seek: seek, scenes: SCENES, total: total };
+    seek(0);
+  } else {
+    show(0);
+    raf = requestAnimationFrame(frame);
+  }
 })();
 </script>
 </body>

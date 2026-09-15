@@ -1,23 +1,45 @@
 # Demo assets
 
-Three ways to get a "demo video" out of this project. Pick one — they
-compose, but each stands alone.
+There is already a finished video: **[`demo.mp4`](demo.mp4)** — 76 seconds,
+1280×720, 30 fps, 2.4 MB, committed to the repo. The rest of this file is how
+it was made, how to re-make it, and how to tell the story around it.
 
 | | what you get | how long | effort |
 |---|---|---|---|
-| **A · self-playing reel** | `docs/demo.html` records itself in the browser | 75 s | zero editing |
+| **A · the rendered reel** | `docs/demo.mp4`, byte-for-byte reproducible | 76 s | none — it's committed |
 | **B · live screen recording** | you narrate the real pipeline running | 90 s | one take, no cuts |
 | **C · AI-generated explainer** | prompt for Sora / Veo / Runway / Kling | 30–60 s | paste a prompt |
 
 ---
 
-## A · Record the self-playing reel (zero editing)
+## A · The rendered reel (already in the repo)
 
-`docs/demo.html` is one self-contained file: no assets, no network, no
-build step. It animates the whole story — architecture, the data
-pipeline, the five agents, the report's citation audit, the eval
-metrics, the CI gate — over ~75 seconds, and it is already the right
-shape for video.
+`docs/demo.html` is one self-contained file: no assets, no network, no build
+step. It animates the whole story — architecture, the data pipeline, the five
+agents, the report's citation audit, the eval metrics, the CI gate — in 76
+seconds. `render_demo.py` turns it into a video without a screen recorder.
+
+```bash
+python render_demo.py                 # docs/demo.mp4, 30 fps, 1280x720
+python render_demo.py --fps 24        # smaller file
+python render_demo.py --format png    # lossless frames (about 2x slower)
+python render_demo.py --only-seconds 5   # smoke-test the pipeline
+```
+
+It drives headless Chrome over the DevTools Protocol and asks the page to
+freeze at an exact timestamp for every frame (`?render=1`), so the output does
+not depend on the machine keeping up: same input, same video. Roughly 6
+minutes for the full 2280 frames, single-threaded, on a laptop. Needs a
+Chromium browser (Chrome or Edge) and ffmpeg — `pip install imageio-ffmpeg`
+if you don't have one on PATH.
+
+The encoded file carries a hash of the reel it came from, and
+`tests/test_demo_assets.py` checks it against `docs/demo.html`. So editing one
+word or one scene duration in the reel fails the suite until you re-render,
+rather than quietly leaving a demo that shows numbers the project no longer
+claims.
+
+### Or record the reel yourself (no browser automation)
 
 1. Open it: `start docs/demo.html` (Windows) · `open docs/demo.html` (macOS).
 2. Press <kbd>F11</kbd> for fullscreen (the stage scales to any window).
@@ -30,7 +52,8 @@ Controls: <kbd>Space</kbd> pause/resume · <kbd>R</kbd> restart ·
 <kbd>←</kbd>/<kbd>→</kbd> step scenes · click to advance.
 
 **Add narration** in any editor (or read the voiceover script in
-section C and lay it over the top — the scenes line up with it).
+section C and lay it over the top — the scenes line up with it). The
+committed video is silent; the script below is written to sit over it.
 
 ---
 
@@ -69,7 +92,7 @@ run takes seconds instead of minutes. Say so out loud when you do it.
 | 0:56 | terminal 2 | `curl -s -X POST localhost:8000/reports -H 'content-type: application/json' -d '{"brief":"fees and developer payouts"}'` | "Reports are jobs, not requests: 202 with a job id. A full report is minutes of LLM work — n8n polls this instead of holding a connection open." |
 | 1:02 | terminal 2 | `curl -s localhost:8000/jobs/<id>` (repeat) | "One worker, so a second report doesn't thrash the box. The job object carries status, duration, and the typed summary." |
 | 1:18 | editor | open `data/reports/market_report_*.md` | "And the output: every claim cited, a critic verdict per claim, and a mechanical audit — code, not an LLM — confirming all 15 citations point at posts that were really retrieved." |
-| 1:30 | terminal 1 | `python -m pytest tests/ -q` | "84 tests. The retrieval index is pinned to a reference numpy ranking, the API is tested through real HTTP with no LLM, and the whole pipeline runs without a model in CI." |
+| 1:30 | terminal 1 | `python -m pytest tests/ -q` | "95 tests. The retrieval index is pinned to a reference numpy ranking, the API is tested through real HTTP with no LLM, and the whole pipeline runs without a model in CI." |
 
 Total: ~90 seconds. **Don't hide the weak parts** — if the critic
 over-flags a claim, point at it and say the verdict counts come from
@@ -213,7 +236,7 @@ version below.
 Safe, specific, true:
 
 - "Retrieval hit rate (recall@5) is 0.82 on hand-labelled questions; MRR is 1.0 — the top hit was relevant every time."
-- "CI runs 84 tests plus a retrieval gate; a regression in chunking, embedding, or search fails the build."
+- "CI runs 95 tests plus a retrieval gate; a regression in chunking, embedding, or search fails the build."
 - "Reports are async jobs because a full report is minutes of LLM work — polling beats a held-open HTTP connection and silent retries."
 - "Every citation is validated against retrieved evidence, and verdict counts are code-counted, not LLM-counted."
 
