@@ -1,0 +1,11 @@
+127.0.0.1 - - [16/Sep/2026 16:06:36] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [16/Sep/2026 16:06:36] "GET /demo.mp4 HTTP/1.1" 200 -
+127.0.0.1 - - [16/Sep/2026 16:06:36] "GET /demo-poster.png HTTP/1.1" 200 -
+127.0.0.1 - - [16/Sep/2026 16:07:08] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [16/Sep/2026 16:07:08] "GET /demo.mp4 HTTP/1.1" 200 -
+127.0.0.1 - - [16/Sep/2026 16:07:08] "GET /demo-poster.png HTTP/1.1" 200 -
+127.0.0.1 - - [16/Sep/2026 16:07:47] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [16/Sep/2026 16:07:47] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [16/Sep/2026 16:07:47] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [16/Sep/2026 16:07:47] "GET /demo-poster.png HTTP/1.1" 200 -
+127.0.0.1 - - [16/Sep/2026 16:07:47] "GET /demo.mp4 HTTP/1.1" 200 -
