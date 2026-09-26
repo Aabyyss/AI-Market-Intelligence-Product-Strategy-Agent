@@ -7,3 +7,7 @@ __pycache__/
 data/.freebuff/
 data/
 .freebuff/
+
+# local secrets (Slack webhook, API keys) - never commit
+.env
+.env.local
