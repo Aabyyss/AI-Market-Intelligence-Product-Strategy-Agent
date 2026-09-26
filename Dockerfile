@@ -37,6 +37,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY market_intel/ ./market_intel/
 COPY run_api.py run_report.py run_ask.py run_search.py run_index.py \
      run_pipeline.py run_eval.py run_corpus.py ./
+# The seed corpus travels with the image so the container can build its
+# own knowledge base: docker run ... python run_corpus.py seed
+COPY tests/fixtures/ci_corpus.json tests/fixtures/ci_corpus.json
 
 # Fail the build if the vector extension cannot load in this image.
 RUN python -c "import sqlite3, sqlite_vec; \

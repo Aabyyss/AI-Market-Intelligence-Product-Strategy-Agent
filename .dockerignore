@@ -9,6 +9,8 @@ __pycache__/
 n8n/
 docs/
 tests/
+!tests/fixtures/
+!tests/fixtures/ci_corpus.json
 data/
 *.md
 .env
