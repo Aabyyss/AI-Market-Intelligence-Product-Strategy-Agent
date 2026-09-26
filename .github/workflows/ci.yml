@@ -82,7 +82,9 @@ jobs:
   # load or a bad wheel pin fails this job, not the first real deploy.
   docker:
     runs-on: ubuntu-latest
-    needs: test
+    # Runs only after the test job is green: no point shipping an image
+    # from a commit whose suite fails.
+    needs: test-and-eval
     steps:
       - uses: actions/checkout@v7
 
