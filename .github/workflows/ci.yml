@@ -75,3 +75,41 @@ jobs:
           name: eval-report
           path: data/reports/ci_eval.md
           if-no-files-found: ignore
+
+  # The Dockerfile was written long before it was ever built — the smoke
+  # tests inside it (sqlite-vec load, embedding model bake) were verified
+  # only by reading. Building it here closes that gap: a broken extension
+  # load or a bad wheel pin fails this job, not the first real deploy.
+  docker:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build the image (runs the sqlite-vec + embedder smoke tests)
+        run: docker build -t market-intel:ci .
+
+      - name: Seed the corpus fixture into a shared volume
+        run: |
+          docker volume create midata
+          # Seed runs the embedder inside the image (the bake, verified).
+          docker run --rm -v midata:/app/data market-intel:ci \
+            python run_corpus.py seed --db /app/data/market_intel.db
+
+      - name: Exercise the live container
+        run: |
+          docker run -d --name api -p 8000:8000 \
+            -v midata:/app/data market-intel:ci
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8000/health > /dev/null; then break; fi
+            sleep 2
+          done
+          echo '--- /health ---';  curl -sf http://127.0.0.1:8000/health
+          echo; echo '--- /smoke ---'; curl -sf http://127.0.0.1:8000/smoke
+          echo; echo '--- /search ---'
+          curl -sf -X POST http://127.0.0.1:8000/search \
+            -H 'Content-Type: application/json' \
+            -d '{"query":"pricing complaints","top_k":2}' | head -c 400
+          echo; echo '--- /console ---'
+          curl -sf -o /dev/null -w 'console HTTP %{http_code}\n' \
+            http://127.0.0.1:8000/console

@@ -31,32 +31,9 @@ import run_corpus
 from market_intel import api, config, fetch
 from market_intel.llm import LLMError
 
-FIXTURE = "tests/fixtures/ci_corpus.json"
-
-
-@pytest.fixture(scope="session")
-def corpus_db(tmp_path_factory):
-    """A DB + vector index built from the tracked fixture (no network)."""
-    path = tmp_path_factory.mktemp("corpus") / "market_intel.db"
-    run_corpus.seed(FIXTURE, str(path))
-    return str(path)
-
-
-@pytest.fixture
-def client(corpus_db, tmp_path, monkeypatch):
-    """A TestClient wired to the fixture corpus and a throwaway report dir."""
-    monkeypatch.setattr(api, "DB_PATH", corpus_db)
-    monkeypatch.setattr(api, "REPORT_DIR", str(tmp_path / "reports"))
-    # Pin the provider. /ask and /reports call get_provider() per request,
-    # which auto-detects by probing localhost:11434 — so without this they
-    # 503 on a machine with nothing running (CI) and quietly pass on a box
-    # that happens to have Ollama up. No LLM is ever reached either way:
-    # the tests that get that far stub answer_question / build_report.
-    monkeypatch.setattr(api, "resolve_provider", lambda: "ollama")
-    with api._JOBS_LOCK:
-        api._JOBS.clear()
-    with TestClient(api.app) as test_client:
-        yield test_client
+# The shared corpus_db / client fixtures live in tests/conftest.py, so
+# the console tests drive the same app the API tests do.
+from tests.conftest import client, corpus_db  # noqa: F401
 
 
 def fake_summary(**overrides) -> dict:

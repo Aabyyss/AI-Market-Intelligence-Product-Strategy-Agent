@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>market-intel console</title>
+<style>
+  :root{
+    --bg:#0d1117;--panel:#161b22;--line:#30363d;--fg:#e6edf3;--dim:#8b949e;
+    --acc:#58a6ff;--ok:#3fb950;--warn:#d29922;--bad:#f85149;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--fg);font:15px/1.55 -apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+  header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;padding:14px 22px;border-bottom:1px solid var(--line)}
+  header h1{font-size:1.05rem}
+  header .ver{color:var(--dim);font-size:.8rem}
+  #status{margin-left:auto;font-size:.8rem;color:var(--dim);white-space:pre}
+  main{display:grid;grid-template-columns:290px 1fr;gap:0;min-height:calc(100vh - 52px)}
+  .side{border-right:1px solid var(--line);padding:16px}
+  .side h2{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:18px 0 8px}
+  .side h2:first-child{margin-top:0}
+  .side input,.side textarea,.side button{font:inherit}
+  .side input,.side textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--fg);padding:7px 9px;margin-bottom:8px}
+  .side textarea{resize:vertical;min-height:60px}
+  .side button{width:100%;background:#21262d;border:1px solid var(--line);border-radius:6px;color:var(--fg);padding:8px 10px;cursor:pointer}
+  .side button:hover{border-color:var(--acc)}
+  .side button:disabled{opacity:.5;cursor:default}
+  .btnrow{display:flex;gap:8px;margin-top:10px}
+  .btnrow button{flex:1;width:auto}
+  label{font-size:.8rem;color:var(--dim)}
+  .content{padding:20px 26px;overflow:auto}
+  .cards{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 16px;min-width:130px}
+  .card .k{font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}
+  .card .v{font-size:1.15rem;font-family:ui-monospace,Consolas,monospace}
+  h3{font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin:22px 0 10px}
+  table{width:100%;border-collapse:collapse;font-size:.88rem}
+  th{text-align:left;color:var(--dim);font-weight:600;font-size:.72rem;text-transform:uppercase;padding:6px 10px;border-bottom:1px solid var(--line)}
+  td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  td.num{font-family:ui-monospace,Consolas,monospace}
+  .pill{display:inline-block;border-radius:10px;padding:1px 9px;font-size:.72rem;border:1px solid var(--line)}
+  .pill.ok{color:var(--ok);border-color:var(--ok)} .pill.warn{color:var(--warn);border-color:var(--warn)}
+  .pill.bad{color:var(--bad);border-color:var(--bad)} .pill.run{color:var(--acc);border-color:var(--acc)}
+  a{color:var(--acc);text-decoration:none} a:hover{text-decoration:underline}
+  .muted{color:var(--dim)} .mono{font-family:ui-monospace,Consolas,monospace}
+  #empty{color:var(--dim);padding:40px 0;text-align:center}
+  .error{border:1px solid var(--bad);border-radius:8px;padding:10px 14px;color:var(--bad);margin:14px 0;background:rgba(248,81,73,.06)}
+  .cite{color:var(--acc);font-size:.75rem;vertical-align:super;margin-left:2px}
+  .claim{margin:8px 0;padding:8px 12px;border-left:3px solid var(--line);background:var(--panel);border-radius:0 6px 6px 0}
+  .claim.supported{border-left-color:var(--ok)} .claim.partial{border-left-color:var(--warn)}
+  .claim.unsupported{border-left-color:var(--bad)}
+  .claim .v{font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;margin-left:8px}
+  .claim .v.supported{color:var(--ok)} .claim .v.partial{color:var(--warn)} .claim .v.unsupported{color:var(--bad)}
+  details{margin-top:6px} summary{cursor:pointer;color:var(--dim);font-size:.8rem}
+  pre{white-space:pre-wrap;font-family:ui-monospace,Consolas,monospace;font-size:.82rem;color:var(--fg)}
+</style>
+</head>
+<body>
+<header>
+  <h1>market-intel</h1><span class="ver" id="ver"></span>
+  <span id="status"></span>
+</header>
+<main>
+  <nav class="side">
+    <h2>Ask the corpus</h2>
+    <textarea id="q" placeholder="e.g. what do developers say about platform fees?"></textarea>
+    <label>top_k</label>
+    <input id="k" type="number" value="5" min="1" max="20">
+    <button id="ask">Ask</button>
+
+    <h2>Full report</h2>
+    <input id="topic" value="developer pain points and unmet needs">
+    <label>competitors (comma-separated)</label>
+    <input id="comps" value="shopify, woocommerce, bigcommerce">
+    <div class="btnrow">
+      <button id="report">Generate report</button>
+      <button id="refresh" title="Fetch new posts, re-chunk and re-embed">Refresh corpus</button>
+    </div>
+
+    <h2>Recent jobs</h2>
+    <table id="jobs"><tbody><tr><td class="muted">none yet</td></tr></tbody></table>
+  </nav>
+  <section class="content" id="content"><p id="empty">Ask a question or start a report.</p></section>
+</main>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const pollers = new Map();
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  let body = null;
+  try { body = await r.json(); } catch { /* non-JSON error body */ }
+  if (!r.ok) throw Object.assign(new Error((body && body.error) || r.statusText), {body});
+  return body;
+}
+
+async function refreshHealth() {
+  try {
+    const h = await api("/health");
+    $("ver").textContent = "v" + h.version;
+    $("status").textContent =
+      `${h.posts} posts · ${h.chunks} chunks · embeddings: ${h.embeddings ?? "?"} · llm: ${h.llm_provider ?? "none"}`;
+  } catch { $("status").textContent = "API unreachable"; }
+}
+
+function jobRow(j) {
+  const cls = j.status === "succeeded" ? "ok" : j.status === "failed" ? "bad" : "run";
+  const label = j.kind === "report" ? esc(j.result?.topic ?? "report") : "refresh";
+  const t = document.createElement("td");
+  t.innerHTML = `<a href="#" data-job="${esc(j.job_id)}">${label}</a>
+    <span class="pill ${cls}">${esc(j.status)}</span>`;
+  t.querySelector("a").onclick = ev => { ev.preventDefault(); showJob(j.job_id); };
+  return t;
+}
+
+async function refreshJobs() {
+  try {
+    const jobs = (await api("/jobs?limit=8")).reverse();
+    const tb = $("jobs").querySelector("tbody");
+    tb.innerHTML = "";
+    if (!jobs.length) { tb.innerHTML = '<tr><td class="muted">none yet</td></tr>'; return; }
+    for (const j of jobs) {
+      const tr = document.createElement("tr");
+      tr.appendChild(jobRow(j));
+      tb.appendChild(tr);
+    }
+    for (const j of jobs) {
+      const active = j.status === "queued" || j.status === "running";
+      if (active && !pollers.has(j.job_id)) {
+        pollers.set(j.job_id, setInterval(async () => {
+          try {
+            const nj = await api("/jobs/" + j.job_id);
+            if (nj.status !== "queued" && nj.status !== "running") {
+              clearInterval(pollers.get(j.job_id)); pollers.delete(j.job_id);
+              refreshJobs(); refreshHealth(); showJob(j.job_id);
+            }
+          } catch { clearInterval(pollers.get(j.job_id)); pollers.delete(j.job_id); }
+        }, 3000));
+      }
+    }
+  } catch { /* side nav is best-effort */ }
+}
+
+function verdictPill(v) {
+  const cls = v === "supported" ? "ok" : v === "partial" ? "warn" : "bad";
+  return `<span class="v ${esc(v)}">${esc(v)}</span>`;
+}
+
+function renderReport(r) {
+  const v = r.verdicts ?? {};
+  const audit = r.citation_audit ?? {};
+  const used = (audit.used ?? []).length;
+  const bad = (audit.out_of_range ?? []).length + (audit.uncited_competitor ?? 0);
+  const el = $("content");
+  el.innerHTML = `
+    <div class="cards">
+      <div class="card"><div class="k">brief</div><div class="v" style="font-size:.9rem">${esc(r.brief)}</div></div>
+      <div class="card"><div class="k">evidence posts</div><div class="v">${esc(r.evidence)}</div></div>
+      <div class="card"><div class="k">verdicts</div><div class="v">${v.SUPPORTED ?? 0}✓ ${v.PARTIAL ?? 0}~ ${v.UNSUPPORTED ?? 0}✗</div></div>
+      <div class="card"><div class="k">citations resolved</div><div class="v" style="color:${bad ? "var(--bad)" : "var(--ok)"}">${used}${bad ? ` (${bad} bad)` : ""}</div></div>
+      <div class="card"><div class="k">model</div><div class="v" style="font-size:.9rem">${esc(r.provider ?? "?")}/${esc(r.model ?? "?")}</div></div>
+    </div>
+    ${bad ? `<div class="error">citation audit: ${bad} citation(s) point at evidence that was not retrieved — see the audit block in the report</div>` : ""}
+    <h3>Per competitor</h3>
+    <table><tr><th>competitor</th><th>evidence</th></tr>` +
+      Object.entries(r.per_competitor ?? {}).map(([c, n]) =>
+        `<tr><td>${esc(c)}</td><td class="num">${esc(n)}</td></tr>`).join("") +
+    `</table>
+    <h3>Report</h3><pre id="md">loading…</pre>`;
+  fetch(r.markdown_url ?? "")
+    .then(x => x.text())
+    .then(md => { const m = el.querySelector("#md"); if (m) m.textContent = md; })
+    .catch(() => { const m = el.querySelector("#md"); if (m) m.textContent = "(markdown unavailable)"; });
+}
+
+async function showJob(jobId) {
+  try {
+    const j = await api("/jobs/" + jobId);
+    const el = $("content");
+    if (j.status === "queued" || j.status === "running") {
+      el.innerHTML = `<p class="muted">job <span class="mono">${esc(jobId)}</span> is ${esc(j.status)}…</p>`;
+      return;
+    }
+    if (j.status === "failed") {
+      el.innerHTML = `<div class="error">job failed: ${esc(j.error ?? "unknown")}</div>`;
+      return;
+    }
+    if (j.kind === "report") renderReport(j.result);
+    else {
+      const r = j.result ?? {};
+      el.innerHTML = `<div class="cards">
+        <div class="card"><div class="k">queries run</div><div class="v">${esc(r.queries ?? "?")}</div></div>
+        <div class="card"><div class="k">fetched</div><div class="v">${esc(r.fetched ?? "?")}</div></div>
+        <div class="card"><div class="k">new posts kept</div><div class="v">${esc(r.kept ?? r.new_posts ?? "?")}</div></div>
+        <div class="card"><div class="k">duration</div><div class="v">${(j.duration_seconds ?? 0).toFixed(0)}s</div></div>
+      </div><p class="muted">The corpus is re-chunked and re-embedded automatically after a refresh.</p>`;
+    }
+  } catch (e) { $("content").innerHTML = `<div class="error">${esc(e.message)}</div>`; }
+}
+
+async function doAsk() {
+  const q = $("q").value.trim();
+  if (!q) return;
+  $("content").innerHTML = `<p class="muted">thinking…</p>`;
+  try {
+    const a = await api("/ask", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({query: q, top_k: Number($("k").value || 5)}),
+    });
+    const el = $("content");
+    const cited = a.answer.replace(/\[(\d+)\]/g, (m, n) => `<sup class="cite">[${n}]</sup>`);
+    el.innerHTML = `
+      <div class="cards">
+        <div class="card"><div class="k">grounded</div><div class="v">${a.grounded ? "yes" : "no"}</div></div>
+        <div class="card"><div class="k">citations</div><div class="v">${a.citations.length}</div></div>
+        <div class="card"><div class="k">sources considered</div><div class="v">${a.sources_considered}</div></div>
+      </div>
+      <h3>Answer</h3><p>${cited}</p>
+      <h3>Cited sources</h3>
+      <table><tr><th>#</th><th>post</th><th>title</th></tr>` +
+      a.citations.map(c =>
+        `<tr><td class="num">[${esc(c.n)}]</td><td class="mono"><a href="${esc(c.url ?? "#")}" target="_blank">${esc(c.post_id)}</a></td>
+         <td>${esc(c.title ?? "")}</td></tr>`).join("") +
+      `</table><details><summary>raw JSON</summary><pre>${esc(JSON.stringify(a, null, 2))}</pre></details>`;
+  } catch (e) { $("content").innerHTML = `<div class="error">${esc(e.message)}</div>`; }
+}
+
+async function startJob(path, body) {
+  try {
+    const j = await api(path, {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(body),
+    });
+    $("content").innerHTML = `<p class="muted">started job <span class="mono">${esc(j.job_id)}</span> (${esc(j.kind)})…</p>`;
+    refreshJobs();
+    setTimeout(() => showJob(j.job_id), 1200);
+  } catch (e) { $("content").innerHTML = `<div class="error">${esc(e.message)}</div>`; }
+}
+
+$("ask").onclick = doAsk;
+$("q").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); doAsk(); } });
+$("report").onclick = () => startJob("/reports", {
+  brief: $("topic").value.trim() || "developer pain points and unmet needs",
+  competitors: $("comps").value.split(",").map(s => s.trim().toLowerCase()).filter(Boolean),
+});
+$("refresh").onclick = () => startJob("/pipeline/refresh", {});
+
+refreshHealth();
+refreshJobs();
+setInterval(refreshHealth, 15000);
+</script>
+</body>
+</html>

@@ -204,6 +204,21 @@ python run_index.py
 python run_api.py            # http://127.0.0.1:8000/docs
 ```
 
+### Desktop app (double-click)
+
+On Windows, `Market Intelligence.bat` (or the **Market Intelligence**
+desktop shortcut) starts the API on a free port and opens the
+**console UI** in the browser: ask the corpus questions with citations,
+start full multi-agent reports and corpus refreshes as jobs, and watch
+verdicts + the mechanical citation audit. `app.py` is the launcher;
+`market_intel/console.html` is served at `GET /console` (a second UI
+over the same API the n8n flows drive).
+
+The same console is the CI smoke target: the Docker job boots the
+seeded container and asserts `/health`, `/smoke` (sqlite-vec executes a
+query; the embedder returns 384-dim vectors), `/search` and `/console`
+all answer inside the running image.
+
 ## Phase 5: n8n orchestration — schedule, notify, recover
 
 n8n owns the business workflow: when a run happens, what to do when it
@@ -349,6 +364,7 @@ run_report.py   # CLI: multi-agent market report
 run_eval.py     # CLI: evaluation harness (retrieval + answer quality)
 run_corpus.py   # CLI: export/seed the corpus fixture (network-free CI)
 run_api.py      # CLI: serve the API (uvicorn)
+app.py          # desktop launcher: free port, wait /health, open /console
 render_demo.py  # CLI: render docs/demo.html into docs/demo.mp4, frame by frame
 Dockerfile      # model baked in + sqlite-vec smoke-tested at build
 docker-compose.yml # api + local Ollama (with the model service)

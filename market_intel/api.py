@@ -61,13 +61,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field, field_validator
 
 from market_intel import __version__, config
 from market_intel.agents import build_report
 from market_intel.answer import answer_question
 from market_intel.clean import clean_posts
+from market_intel.embed import get_embedder
 from market_intel.fetch import fetch_all, planned_queries
 from market_intel.llm import LLMError, model_for, resolve_provider
 from market_intel.logging_config import (
@@ -336,6 +337,12 @@ def root() -> dict:
     }
 
 
+@app.get("/console", include_in_schema=False)
+def console() -> FileResponse:
+    """The console UI — a browser app over the same API the n8n flows use."""
+    return FileResponse(Path(__file__).with_name("console.html"))
+
+
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
     """Liveness + what the service actually has to work with."""
@@ -356,6 +363,31 @@ def health() -> HealthResponse:
         llm_detail=detail,
         **_corpus_stats(),
     )
+
+
+@app.get("/smoke")
+def smoke() -> dict:
+    """Runtime self-test of the two native dependencies.
+
+    The Docker build already checks that sqlite-vec loads and that the
+    embedding model downloads; this proves they work *at request time*
+    in the running process — an extension that loads but cannot execute
+    a query, or an embedder that returns the wrong shape, is a failed
+    smoke test instead of a mystery 500 on the first real search.
+    """
+    conn = connect(DB_PATH)
+    try:
+        hits = search(conn, "developer pricing complaints", top_k=3)
+    finally:
+        conn.close()
+    embedder = get_embedder()
+    vector = embedder.embed_query("smoke test")
+    return {
+        "sqlite_vec_query": "ok",
+        "search_hits": len(hits),
+        "embedder": embedder.model_name,
+        "embedder_dim": int(vector.shape[0]),
+    }
 
 
 @app.post("/search", response_model=SearchResponse)
