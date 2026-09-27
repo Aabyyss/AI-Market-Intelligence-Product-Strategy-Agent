@@ -86,6 +86,8 @@
       <tr><td>#2</td><td>corpus refresh 06:00</td><td>fetch 195 · kept 161 · inserted 0 (dedup working)</td><td>Slack: "Corpus refreshed — 0 new posts (169 total)"</td></tr>
       <tr><td>#6</td><td>market report 07:00</td><td>43 poll loops · report succeeded in 1375 s · 22 evidence posts</td><td>Slack webhook answered <code>ok</code></td></tr>
       <tr><td>#7</td><td>corpus refresh 06:00 (next day)</td><td>ONNX out of memory under RAM starvation → job failed cleanly</td><td>Slack: "⚠ Corpus refresh failed…" answered <code>ok</code></td></tr>
+      <tr><td>#8</td><td>corpus refresh 06:00 (manual fire)</td><td>first run after the in-place workflow re-import · job tagged <code>source: "n8n"</code> end to end</td><td>Slack: "Corpus refreshed — 0 new posts (169 total)"</td></tr>
+      <tr><td>#9</td><td>market report 07:00 (manual fire)</td><td>39 poll loops · succeeded in 1233 s · 21 evidence posts · verdicts 5 ✓ / 2 ~ / 15 ✗</td><td>Slack webhook answered <code>ok</code></td></tr>
     </table>
     <p style="color:var(--dim);font-size:.85rem;margin-top:12px">Every n8n-started job is tagged <code>source: "n8n"</code> end to end — job record, API responses, console badge — so scheduled runs are distinguishable from manual ones.</p>
     <p style="color:var(--dim);font-size:.85rem;margin-top:12px">A deliberately-injected poll-loop bug (Route dropping <code>poll_seconds</code>) was caught by the first run and fixed — the demo found a real bug. Full log: <a href="https://github.com/Aabyyss/AI-Market-Intelligence-Product-Strategy-Agent/blob/main/n8n/LIVE_RUN_2026-09-27.md">n8n/LIVE_RUN_2026-09-27.md</a>.</p>

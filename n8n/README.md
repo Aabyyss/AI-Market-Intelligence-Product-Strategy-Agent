@@ -83,13 +83,17 @@ webhook:
 |---|---|---|---|
 | #2 | `corpus_refresh` | success | API refresh job `succeeded`; Slack reply: "Corpus refreshed - 0 new posts (169 total)" |
 | #6 | `market_report` | success | 43 poll iterations, report job `succeeded` in 1375 s, **Notify Slack node returned `ok`** |
+| #8 | `corpus_refresh` | success | first run after the in-place re-import; job record carries `source: "n8n"` end to end |
+| #9 | `market_report` | success | 39 poll iterations, report job `succeeded` in 1233 s (21 evidence posts, verdicts 5/2/15), **Notify Slack node returned `ok`** |
 
 Exec #6 in numbers: `Start report job` -> 22 evidence posts retrieved
 (shopify 8, woocommerce 8, bigcommerce 6), verdict audit
 (2 PARTIAL / 20 UNSUPPORTED claims caught by the critic), markdown
 written to `data/reports/`, then the webhook POST. The full run lived
 in n8n's execution log - trigger node `Daily 07:00`, not a manual node
-run.
+run. Execs #8 and #9 are the post-re-import verification pair (refresh
+with the source tag, report under the raised budget); full facts in
+`LIVE_RUN_2026-09-27.md`.
 
 Two failures got us there, both fixed in git:
 
