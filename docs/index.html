@@ -78,6 +78,17 @@
   <div class="quote">Reference <span class="flag">[10]</span> — <span class="flag">unresolved</span>: report cites 10 sources, 9 evidence posts retrieved. Verdicts: 1 supported · 3 partial · 10 unsupported.</div>
   <div class="quote"><span class="fix">Mechanical audit:</span> every [n] must point at real evidence; health is aggregated per report section and surfaced in the rendered output and the Slack summary.</div>
 
+  <h2>The scheduler ran for real</h2>
+  <div class="panel">
+    <p>n8n is not a diagram here — both workflows executed end-to-end against the live API through their schedule triggers, and Slack received the notifications (free incoming webhook).</p>
+    <table>
+      <tr><th>Execution</th><th>Workflow</th><th>Result</th><th>Receipt</th></tr>
+      <tr><td>#2</td><td>corpus refresh 06:00</td><td>fetch 195 · kept 161 · inserted 0 (dedup working)</td><td>Slack: "Corpus refreshed — 0 new posts (169 total)"</td></tr>
+      <tr><td>#6</td><td>market report 07:00</td><td>43 poll loops · report succeeded in 1375 s · 22 evidence posts</td><td>Slack webhook answered <code>ok</code></td></tr>
+    </table>
+    <p style="color:var(--dim);font-size:.85rem;margin-top:12px">A deliberately-injected poll-loop bug (Route dropping <code>poll_seconds</code>) was caught by the first run and fixed — the demo found a real bug. Full log: <a href="https://github.com/Aabyyss/AI-Market-Intelligence-Product-Strategy-Agent/blob/main/n8n/LIVE_RUN_2026-09-27.md">n8n/LIVE_RUN_2026-09-27.md</a>.</p>
+  </div>
+
   <h2>Reproduce</h2>
   <div class="panel"><div class="flow">git clone https://github.com/Aabyyss/AI-Market-Intelligence-Product-Strategy-Agent
 pip install -r requirements.txt -r requirements-dev.txt
