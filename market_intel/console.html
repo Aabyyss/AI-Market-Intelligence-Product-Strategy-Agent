@@ -6,59 +6,119 @@
 <title>market-intel console</title>
 <style>
   :root{
-    --bg:#0d1117;--panel:#161b22;--line:#30363d;--fg:#e6edf3;--dim:#8b949e;
-    --acc:#58a6ff;--ok:#3fb950;--warn:#d29922;--bad:#f85149;
+    --bg:#0b0f14;--panel:#11161d;--panel2:#161d26;--line:#26303c;--line2:#324050;
+    --fg:#e6edf3;--dim:#8b98a5;--faint:#5c6873;
+    --acc:#4c9ffe;--acc-soft:rgba(76,159,254,.12);
+    --ok:#3fb950;--warn:#d29922;--bad:#f85149;
+    --mono:ui-monospace,Consolas,"Cascadia Mono",monospace;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--bg);color:var(--fg);font:15px/1.55 -apple-system,"Segoe UI",Roboto,Arial,sans-serif}
-  header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;padding:14px 22px;border-bottom:1px solid var(--line)}
-  header h1{font-size:1.05rem}
-  header .ver{color:var(--dim);font-size:.8rem}
-  #status{margin-left:auto;font-size:.8rem;color:var(--dim);white-space:pre}
-  main{display:grid;grid-template-columns:290px 1fr;gap:0;min-height:calc(100vh - 52px)}
-  .side{border-right:1px solid var(--line);padding:16px}
-  .side h2{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:18px 0 8px}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--fg);font:14.5px/1.55 -apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+
+  /* ---------- header ---------- */
+  header{display:flex;align-items:center;gap:12px;padding:10px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:650;font-size:1.02rem;letter-spacing:.01em}
+  .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--acc);box-shadow:0 0 10px var(--acc)}
+  .brand small{color:var(--faint);font-weight:400;font-size:.78rem}
+  #health{display:flex;align-items:center;gap:7px;font-size:.8rem;color:var(--dim);margin-left:14px;min-width:0}
+  #health .hdot{width:8px;height:8px;border-radius:50%;background:var(--bad);flex:none;transition:background .3s}
+  #health.online .hdot{background:var(--ok);box-shadow:0 0 8px rgba(63,185,80,.7)}
+  #health .hmeta{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .spacer{flex:1}
+  .ver{font-family:var(--mono);font-size:.74rem;color:var(--dim);border:1px solid var(--line);border-radius:10px;padding:2px 9px;background:var(--bg)}
+  .ver a{color:var(--dim)} .ver a:hover{color:var(--acc)}
+
+  /* ---------- layout ---------- */
+  main{display:grid;grid-template-columns:300px 1fr;min-height:calc(100vh - 53px)}
+  .side{border-right:1px solid var(--line);padding:18px 16px 26px;background:linear-gradient(180deg,var(--panel) 0,var(--bg) 140px)}
+  .side h2{font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin:22px 2px 8px}
   .side h2:first-child{margin-top:0}
-  .side input,.side textarea,.side button{font:inherit}
-  .side input,.side textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--fg);padding:7px 9px;margin-bottom:8px}
-  .side textarea{resize:vertical;min-height:60px}
-  .side button{width:100%;background:#21262d;border:1px solid var(--line);border-radius:6px;color:var(--fg);padding:8px 10px;cursor:pointer}
-  .side button:hover{border-color:var(--acc)}
-  .side button:disabled{opacity:.5;cursor:default}
-  .btnrow{display:flex;gap:8px;margin-top:10px}
-  .btnrow button{flex:1;width:auto}
-  label{font-size:.8rem;color:var(--dim)}
-  .content{padding:20px 26px;overflow:auto}
-  .cards{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 16px;min-width:130px}
-  .card .k{font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}
-  .card .v{font-size:1.15rem;font-family:ui-monospace,Consolas,monospace}
-  h3{font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin:22px 0 10px}
-  table{width:100%;border-collapse:collapse;font-size:.88rem}
-  th{text-align:left;color:var(--dim);font-weight:600;font-size:.72rem;text-transform:uppercase;padding:6px 10px;border-bottom:1px solid var(--line)}
+  .content{padding:24px 30px 60px;overflow:auto}
+  @media (max-width:860px){main{grid-template-columns:1fr}.side{border-right:none;border-bottom:1px solid var(--line)}.content{padding:18px}}
+
+  /* ---------- forms ---------- */
+  .side input,.side textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:7px;color:var(--fg);padding:8px 10px;margin:4px 0 8px;font:inherit;transition:border-color .15s}
+  .side input:focus,.side textarea:focus{outline:none;border-color:var(--acc)}
+  .side textarea{resize:vertical;min-height:64px}
+  .side button,.btn{font:inherit;font-weight:550;background:#1c2530;border:1px solid var(--line2);border-radius:7px;color:var(--fg);padding:8px 12px;cursor:pointer;transition:border-color .15s,background .15s}
+  .side button:hover,.btn:hover{border-color:var(--acc);background:#202b39}
+  .side button:disabled{opacity:.45;cursor:default}
+  .side button.primary{background:var(--acc-soft);border-color:rgba(76,159,254,.45);color:var(--acc)}
+  .side button.primary:hover{background:rgba(76,159,254,.2)}
+  .btnrow{display:flex;gap:8px;margin-top:2px}
+  .btnrow button{flex:1}
+  label{font-size:.76rem;color:var(--dim)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+  .chip{font-size:.74rem;color:var(--dim);border:1px solid var(--line);border-radius:20px;padding:2px 10px;cursor:pointer;background:var(--bg);transition:all .15s}
+  .chip:hover{color:var(--acc);border-color:var(--acc)}
+
+  /* ---------- jobs list ---------- */
+  #jobs{width:100%;border-collapse:collapse}
+  #jobs td{padding:6px 4px;border-bottom:1px solid var(--line);font-size:.82rem}
+  #jobs tr{cursor:pointer} #jobs tr:hover td{background:rgba(76,159,254,.05)}
+  #jobs .jlabel{display:block;max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #jobs .jmeta{color:var(--faint);font-size:.7rem;margin-top:1px}
+  .pill{display:inline-block;border-radius:10px;padding:1px 9px;font-size:.7rem;border:1px solid var(--line);font-family:var(--mono)}
+  .pill.ok{color:var(--ok);border-color:rgba(63,185,80,.6)}
+  .pill.warn{color:var(--warn);border-color:rgba(210,153,34,.6)}
+  .pill.bad{color:var(--bad);border-color:rgba(248,81,73,.6)}
+  .pill.run{color:var(--acc);border-color:rgba(76,159,254,.6)}
+  .pill.run.live{position:relative}
+  .pill.run.live::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--acc);margin-right:5px;animation:pulse 1.2s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+
+  /* ---------- cards & content ---------- */
+  .cards{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 20px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:11px 15px;min-width:128px}
+  .card .k{font-size:.66rem;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin-bottom:2px}
+  .card .v{font-size:1.12rem;font-family:var(--mono)}
+  .card .v.small{font-size:.86rem}
+  .v.ok{color:var(--ok)} .v.bad{color:var(--bad)}
+  h3{font-size:.76rem;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin:26px 0 10px}
+  table{width:100%;border-collapse:collapse;font-size:.86rem}
+  th{text-align:left;color:var(--faint);font-weight:600;font-size:.68rem;text-transform:uppercase;padding:6px 10px;border-bottom:1px solid var(--line)}
   td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
-  td.num{font-family:ui-monospace,Consolas,monospace}
-  .pill{display:inline-block;border-radius:10px;padding:1px 9px;font-size:.72rem;border:1px solid var(--line)}
-  .pill.ok{color:var(--ok);border-color:var(--ok)} .pill.warn{color:var(--warn);border-color:var(--warn)}
-  .pill.bad{color:var(--bad);border-color:var(--bad)} .pill.run{color:var(--acc);border-color:var(--acc)}
+  td.num{font-family:var(--mono)}
   a{color:var(--acc);text-decoration:none} a:hover{text-decoration:underline}
-  .muted{color:var(--dim)} .mono{font-family:ui-monospace,Consolas,monospace}
-  #empty{color:var(--dim);padding:40px 0;text-align:center}
-  .error{border:1px solid var(--bad);border-radius:8px;padding:10px 14px;color:var(--bad);margin:14px 0;background:rgba(248,81,73,.06)}
-  .cite{color:var(--acc);font-size:.75rem;vertical-align:super;margin-left:2px}
-  .claim{margin:8px 0;padding:8px 12px;border-left:3px solid var(--line);background:var(--panel);border-radius:0 6px 6px 0}
-  .claim.supported{border-left-color:var(--ok)} .claim.partial{border-left-color:var(--warn)}
-  .claim.unsupported{border-left-color:var(--bad)}
-  .claim .v{font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;margin-left:8px}
+  .muted{color:var(--dim)} .mono{font-family:var(--mono)}
+  #empty{color:var(--faint);padding:60px 0;text-align:center}
+  .error{border:1px solid rgba(248,81,73,.55);border-radius:9px;padding:11px 15px;color:var(--bad);margin:0 0 18px;background:rgba(248,81,73,.06)}
+  .cite{color:var(--acc);font-size:.74rem;vertical-align:super;margin-left:2px;cursor:help}
+  .claim{margin:8px 0;padding:8px 12px;border-left:3px solid var(--line);background:var(--panel);border-radius:0 7px 7px 0}
+  .claim.supported{border-left-color:var(--ok)} .claim.partial{border-left-color:var(--warn)} .claim.unsupported{border-left-color:var(--bad)}
+  .claim .v{font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;margin-left:8px;font-family:var(--mono)}
   .claim .v.supported{color:var(--ok)} .claim .v.partial{color:var(--warn)} .claim .v.unsupported{color:var(--bad)}
-  details{margin-top:6px} summary{cursor:pointer;color:var(--dim);font-size:.8rem}
-  pre{white-space:pre-wrap;font-family:ui-monospace,Consolas,monospace;font-size:.82rem;color:var(--fg)}
+  details{margin-top:10px} summary{cursor:pointer;color:var(--dim);font-size:.8rem}
+  pre{white-space:pre-wrap;font-family:var(--mono);font-size:.8rem;color:var(--fg);line-height:1.5}
+
+  /* bars for per-competitor evidence */
+  .barrow{display:grid;grid-template-columns:130px 1fr 40px;gap:10px;align-items:center;margin:6px 0;font-size:.84rem}
+  .barrow .btrack{background:var(--panel2);border-radius:5px;height:9px;overflow:hidden}
+  .barrow .bfill{height:100%;background:linear-gradient(90deg,var(--acc),#7cc0ff);border-radius:5px;transition:width .4s}
+  .barrow .bn{font-family:var(--mono);text-align:right;color:var(--dim)}
+
+  /* home pipeline */
+  .pipe{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0 6px}
+  .pipe .step{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 12px;font-size:.78rem}
+  .pipe .step b{display:block;font-size:.82rem;color:var(--acc);font-weight:600}
+  .pipe .arr{color:var(--faint)}
+  .homehint{color:var(--dim);font-size:.88rem;max-width:640px;margin:10px 0 0}
+
+  /* toast */
+  #toasts{position:fixed;right:18px;bottom:18px;display:flex;flex-direction:column;gap:8px;z-index:9}
+  .toast{background:var(--panel2);border:1px solid var(--line2);border-left:3px solid var(--ok);border-radius:8px;padding:9px 14px;font-size:.82rem;box-shadow:0 6px 24px rgba(0,0,0,.45);animation:slidein .18s ease-out}
+  .toast.bad{border-left-color:var(--bad)}
+  @keyframes slidein{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
 </style>
 </head>
 <body>
 <header>
-  <h1>market-intel</h1><span class="ver" id="ver"></span>
-  <span id="status"></span>
+  <div class="brand"><span class="dot"></span>market-intel <small>console</small></div>
+  <div id="health"><span class="hdot"></span><span class="hmeta">connecting...</span></div>
+  <div class="spacer"></div>
+  <span class="ver"><a href="/docs" target="_blank" title="OpenAPI docs">API docs</a></span>
+  <span class="ver" id="ver"></span>
 </header>
 <main>
   <nav class="side">
@@ -66,7 +126,8 @@
     <textarea id="q" placeholder="e.g. what do developers say about platform fees?"></textarea>
     <label>top_k</label>
     <input id="k" type="number" value="5" min="1" max="20">
-    <button id="ask">Ask</button>
+    <button id="ask" class="primary">Ask</button>
+    <div class="chips" id="chips"></div>
 
     <h2>Full report</h2>
     <input id="topic" value="developer pain points and unmet needs">
@@ -80,13 +141,23 @@
     <h2>Recent jobs</h2>
     <table id="jobs"><tbody><tr><td class="muted">none yet</td></tr></tbody></table>
   </nav>
-  <section class="content" id="content"><p id="empty">Ask a question or start a report.</p></section>
+  <section class="content" id="content"></section>
 </main>
+<div id="toasts"></div>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
-const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const esc = s => String(s ?? "").replace(/[&<>\"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));
 const pollers = new Map();
+let currentJob = null;
+
+function toast(msg, bad) {
+  const t = document.createElement("div");
+  t.className = "toast" + (bad ? " bad" : "");
+  t.textContent = msg;
+  $("toasts").appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
 
 async function api(path, opts) {
   const r = await fetch(path, opts);
@@ -96,36 +167,87 @@ async function api(path, opts) {
   return body;
 }
 
+function rt(iso) {
+  if (!iso) return "";
+  const s = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (s < 60) return "just now";
+  if (s < 3600) return Math.floor(s / 60) + "m ago";
+  if (s < 86400) return Math.floor(s / 3600) + "h ago";
+  return new Date(iso).toLocaleDateString();
+}
+function fmtDur(s) {
+  s = Math.round(s ?? 0);
+  if (s < 60) return s + "s";
+  return Math.floor(s / 60) + "m " + (s % 60) + "s";
+}
+
 async function refreshHealth() {
+  const el = $("health");
   try {
     const h = await api("/health");
+    el.classList.add("online");
     $("ver").textContent = "v" + h.version;
-    $("status").textContent =
-      `${h.posts} posts · ${h.chunks} chunks · embeddings: ${h.embeddings ?? "?"} · llm: ${h.llm_provider ?? "none"}`;
-  } catch { $("status").textContent = "API unreachable"; }
+    el.querySelector(".hmeta").textContent =
+      `${h.posts} posts - ${h.chunks} chunks - llm: ${h.llm_provider ?? "none"}`;
+    if (currentJob === null && !$("content").firstChild) renderHome(h);
+    return h;
+  } catch {
+    el.classList.remove("online");
+    el.querySelector(".hmeta").textContent = "API offline - is ./run_api.py running?";
+  }
+}
+
+function renderHome(h) {
+  h = h || {};
+  $("content").innerHTML = `
+    <div class="cards">
+      <div class="card"><div class="k">posts collected</div><div class="v">${esc(h.posts ?? "-")}</div></div>
+      <div class="card"><div class="k">embedded chunks</div><div class="v">${esc(h.chunks ?? "-")}</div></div>
+      <div class="card"><div class="k">embedding model</div><div class="v small">${esc(h.embeddings ?? "-")}</div></div>
+      <div class="card"><div class="k">llm</div><div class="v small">${esc(h.llm_provider ?? "none")}${h.llm_model ? "/" + esc(h.llm_model) : ""}</div></div>
+    </div>
+    <h3>How a report is built</h3>
+    <div class="pipe">
+      <div class="step"><b>fetch</b>Hacker News</div><span class="arr">-></span>
+      <div class="step"><b>clean + store</b>SQLite</div><span class="arr">-></span>
+      <div class="step"><b>chunk + embed</b>bge-small</div><span class="arr">-></span>
+      <div class="step"><b>5-agent pipeline</b>local LLM</div><span class="arr">-></span>
+      <div class="step"><b>cited report</b>markdown</div><span class="arr">-></span>
+      <div class="step"><b>notify</b>n8n + Slack</div>
+    </div>
+    <p class="homehint">Every claim in a report is retrieved from the corpus first and cited back to a
+    real post; a citation audit rejects anything the evidence does not support. Ask a question on the
+    left for a quick grounded answer, or generate a full competitor report as a background job.</p>`;
 }
 
 function jobRow(j) {
   const cls = j.status === "succeeded" ? "ok" : j.status === "failed" ? "bad" : "run";
-  const label = j.kind === "report" ? esc(j.result?.topic ?? "report") : "refresh";
+  const label = j.kind === "report" ? (j.result?.topic ?? j.result?.brief ?? "report") : "corpus refresh";
   const src = j.source && j.source !== "api" ? ` <span class="pill run">${esc(j.source)}</span>` : "";
   const t = document.createElement("td");
-  t.innerHTML = `<a href="#" data-job="${esc(j.job_id)}">${label}</a>${src}
-    <span class="pill ${cls}">${esc(j.status)}</span>`;
-  t.querySelector("a").onclick = ev => { ev.preventDefault(); showJob(j.job_id); };
+  t.innerHTML = `<span class="jlabel">${esc(label)} ${src}</span>
+    <span class="pill ${cls}${cls === "run" ? " live" : ""}">${esc(j.status)}</span>
+    <div class="jmeta">${esc(rt(j.created_at))}${j.duration_seconds ? " - " + esc(fmtDur(j.duration_seconds)) : ""}</div>`;
   return t;
+}
+
+function jobTr(j) {
+  const tr = document.createElement("tr");
+  tr.appendChild(jobRow(j));
+  tr.onclick = () => showJob(j.job_id);
+  tr.title = j.kind + " job " + j.job_id +
+    (j.created_at ? " - started " + new Date(j.created_at).toLocaleString() : "");
+  return tr;
 }
 
 async function refreshJobs() {
   try {
-    const jobs = (await api("/jobs?limit=8")).reverse();
+    const jobs = await api("/jobs?limit=8");
     const tb = $("jobs").querySelector("tbody");
     tb.innerHTML = "";
     if (!jobs.length) { tb.innerHTML = '<tr><td class="muted">none yet</td></tr>'; return; }
     for (const j of jobs) {
-      const tr = document.createElement("tr");
-      tr.appendChild(jobRow(j));
-      tb.appendChild(tr);
+      tb.appendChild(jobTr(j));
     }
     for (const j of jobs) {
       const active = j.status === "queued" || j.status === "running";
@@ -135,7 +257,10 @@ async function refreshJobs() {
             const nj = await api("/jobs/" + j.job_id);
             if (nj.status !== "queued" && nj.status !== "running") {
               clearInterval(pollers.get(j.job_id)); pollers.delete(j.job_id);
-              refreshJobs(); refreshHealth(); showJob(j.job_id);
+              refreshJobs(); refreshHealth();
+              toast(nj.status === "succeeded" ? "Job finished: " + nj.kind : "Job failed: " + nj.kind,
+                    nj.status !== "succeeded");
+              if (currentJob === nj.job_id) showJob(nj.job_id);
             }
           } catch { clearInterval(pollers.get(j.job_id)); pollers.delete(j.job_id); }
         }, 3000));
@@ -154,22 +279,22 @@ function renderReport(r) {
   const audit = r.citation_audit ?? {};
   const used = (audit.used ?? []).length;
   const bad = (audit.out_of_range ?? []).length + (audit.uncited_competitor ?? 0);
+  const per = Object.entries(r.per_competitor ?? {});
+  const max = Math.max(1, ...per.map(([, n]) => Number(n) || 0));
   const el = $("content");
   el.innerHTML = `
     <div class="cards">
-      <div class="card"><div class="k">brief</div><div class="v" style="font-size:.9rem">${esc(r.brief)}</div></div>
+      <div class="card"><div class="k">brief</div><div class="v small" style="max-width:260px">${esc(r.brief)}</div></div>
       <div class="card"><div class="k">evidence posts</div><div class="v">${esc(r.evidence)}</div></div>
       <div class="card"><div class="k">verdicts</div><div class="v">${v.SUPPORTED ?? 0}✓ ${v.PARTIAL ?? 0}~ ${v.UNSUPPORTED ?? 0}✗</div></div>
-      <div class="card"><div class="k">citations resolved</div><div class="v" style="color:${bad ? "var(--bad)" : "var(--ok)"}">${used}${bad ? ` (${bad} bad)` : ""}</div></div>
-      <div class="card"><div class="k">model</div><div class="v" style="font-size:.9rem">${esc(r.provider ?? "?")}/${esc(r.model ?? "?")}</div></div>
+      <div class="card"><div class="k">citations resolved</div><div class="v ${bad ? "bad" : "ok"}">${used}${bad ? ` (${bad} bad)` : ""}</div></div>
+      <div class="card"><div class="k">model</div><div class="v small">${esc(r.provider ?? "?")}/${esc(r.model ?? "?")}</div></div>
     </div>
     ${bad ? `<div class="error">citation audit: ${bad} citation(s) point at evidence that was not retrieved — see the audit block in the report</div>` : ""}
-    <h3>Per competitor</h3>
-    <table><tr><th>competitor</th><th>evidence</th></tr>` +
-      Object.entries(r.per_competitor ?? {}).map(([c, n]) =>
-        `<tr><td>${esc(c)}</td><td class="num">${esc(n)}</td></tr>`).join("") +
-    `</table>
-    <h3>Report</h3><pre id="md">loading…</pre>`;
+    <h3>Per competitor</h3>` +
+    per.map(([c, n]) =>
+      `<div class="barrow"><span>${esc(c)}</span><span class="btrack"><span class="bfill" style="display:block;width:${Math.round(100 * (Number(n) || 0) / max)}%"></span></span><span class="bn">${esc(n)}</span></div>`).join("") +
+    `<h3>Report</h3><pre id="md">loading…</pre>`;
   fetch(r.markdown_url ?? "")
     .then(x => x.text())
     .then(md => { const m = el.querySelector("#md"); if (m) m.textContent = md; })
@@ -177,11 +302,13 @@ function renderReport(r) {
 }
 
 async function showJob(jobId) {
+  currentJob = jobId;
   try {
     const j = await api("/jobs/" + jobId);
     const el = $("content");
     if (j.status === "queued" || j.status === "running") {
-      el.innerHTML = `<p class="muted">job <span class="mono">${esc(jobId)}</span> is ${esc(j.status)}…</p>`;
+      el.innerHTML = `<p class="muted">job <span class="mono">${esc(jobId)}</span> is ${esc(j.status)}…
+        <span class="pill run live">polling every 3s</span></p>`;
       return;
     }
     if (j.status === "failed") {
@@ -192,10 +319,11 @@ async function showJob(jobId) {
     else {
       const r = j.result ?? {};
       el.innerHTML = `<div class="cards">
-        <div class="card"><div class="k">queries run</div><div class="v">${esc(r.queries ?? "?")}</div></div>
+        <div class="card"><div class="k">queries run</div><div class="v">${esc(r.queries ?? "?")}${r.queries_planned != null ? "/" + esc(r.queries_planned) : ""}</div></div>
         <div class="card"><div class="k">fetched</div><div class="v">${esc(r.fetched ?? "?")}</div></div>
         <div class="card"><div class="k">new posts kept</div><div class="v">${esc(r.kept ?? r.new_posts ?? "?")}</div></div>
-        <div class="card"><div class="k">duration</div><div class="v">${(j.duration_seconds ?? 0).toFixed(0)}s</div></div>
+        <div class="card"><div class="k">corpus size</div><div class="v">${esc(r.posts_total ?? "?")}</div></div>
+        <div class="card"><div class="k">duration</div><div class="v">${esc(fmtDur(j.duration_seconds))}</div></div>
       </div><p class="muted">The corpus is re-chunked and re-embedded automatically after a refresh.</p>`;
     }
   } catch (e) { $("content").innerHTML = `<div class="error">${esc(e.message)}</div>`; }
@@ -204,17 +332,17 @@ async function showJob(jobId) {
 async function doAsk() {
   const q = $("q").value.trim();
   if (!q) return;
-  $("content").innerHTML = `<p class="muted">thinking…</p>`;
+  $("content").innerHTML = `<p class="muted">retrieving evidence and answering…</p>`;
   try {
     const a = await api("/ask", {
       method: "POST", headers: {"Content-Type": "application/json"},
       body: JSON.stringify({query: q, top_k: Number($("k").value || 5)}),
     });
     const el = $("content");
-    const cited = a.answer.replace(/\[(\d+)\]/g, (m, n) => `<sup class="cite">[${n}]</sup>`);
+    const cited = a.answer.replace(/\[(\d+)\]/g, (m, n) => `<sup class="cite" title="source ${esc(n)}">[${n}]</sup>`);
     el.innerHTML = `
       <div class="cards">
-        <div class="card"><div class="k">grounded</div><div class="v">${a.grounded ? "yes" : "no"}</div></div>
+        <div class="card"><div class="k">grounded in corpus</div><div class="v ${a.grounded ? "ok" : "bad"}">${a.grounded ? "yes" : "no"}</div></div>
         <div class="card"><div class="k">citations</div><div class="v">${a.citations.length}</div></div>
         <div class="card"><div class="k">sources considered</div><div class="v">${a.sources_considered}</div></div>
       </div>
@@ -222,19 +350,20 @@ async function doAsk() {
       <h3>Cited sources</h3>
       <table><tr><th>#</th><th>post</th><th>title</th></tr>` +
       a.citations.map(c =>
-        `<tr><td class="num">[${esc(c.n)}]</td><td class="mono"><a href="${esc(c.url ?? "#")}" target="_blank">${esc(c.post_id)}</a></td>
+        `<tr><td class="num">[${esc(c.n)}]</td><td class="mono"><a href="${esc(c.url ?? "#")}" target="_blank" rel="noopener">${esc(c.post_id)}</a></td>
          <td>${esc(c.title ?? "")}</td></tr>`).join("") +
       `</table><details><summary>raw JSON</summary><pre>${esc(JSON.stringify(a, null, 2))}</pre></details>`;
   } catch (e) { $("content").innerHTML = `<div class="error">${esc(e.message)}</div>`; }
 }
 
-async function startJob(path, body) {
+async function startJob(path, body, label) {
   try {
     const j = await api(path, {
       method: "POST", headers: {"Content-Type": "application/json"},
       body: JSON.stringify(body),
     });
-    $("content").innerHTML = `<p class="muted">started job <span class="mono">${esc(j.job_id)}</span> (${esc(j.kind)})…</p>`;
+    toast("Started " + (label ?? j.kind) + " job " + j.job_id.slice(0, 8));
+    $("content").innerHTML = `<p class="muted">started ${esc(j.kind)} job <span class="mono">${esc(j.job_id)}</span>…</p>`;
     refreshJobs();
     setTimeout(() => showJob(j.job_id), 1200);
   } catch (e) { $("content").innerHTML = `<div class="error">${esc(e.message)}</div>`; }
@@ -245,8 +374,22 @@ $("q").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) 
 $("report").onclick = () => startJob("/reports", {
   brief: $("topic").value.trim() || "developer pain points and unmet needs",
   competitors: $("comps").value.split(",").map(s => s.trim().toLowerCase()).filter(Boolean),
-});
-$("refresh").onclick = () => startJob("/pipeline/refresh", {});
+}, "report");
+$("refresh").onclick = () => startJob("/pipeline/refresh", {}, "refresh");
+
+const EXAMPLES = [
+  "What do developers say about platform fees?",
+  "Which platform has the worst payout delays?",
+  "What integrations are people asking for?",
+];
+for (const ex of EXAMPLES) {
+  const b = document.createElement("span");
+  b.className = "chip";
+  b.textContent = ex;
+  b.title = "Click to fill, click Ask to run";
+  b.onclick = () => { $("q").value = ex; $("q").focus(); };
+  $("chips").appendChild(b);
+}
 
 refreshHealth();
 refreshJobs();
