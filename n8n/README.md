@@ -73,6 +73,42 @@ Both are importable: **n8n → Workflows → ⋯ → Import from File**.
    curl -s localhost:8000/jobs/<job_id>
    ```
 
+## Verified live (2026-09-27)
+
+Both workflows ran for real against the local API, through n8n's own
+scheduler entry points, with Slack notified over a free-plan incoming
+webhook:
+
+| execution | workflow | outcome | proof |
+|---|---|---|---|
+| #2 | `corpus_refresh` | success | API refresh job `succeeded`; Slack reply: "Corpus refreshed - 0 new posts (169 total)" |
+| #6 | `market_report` | success | 43 poll iterations, report job `succeeded` in 1375 s, **Notify Slack node returned `ok`** |
+
+Exec #6 in numbers: `Start report job` -> 22 evidence posts retrieved
+(shopify 8, woocommerce 8, bigcommerce 6), verdict audit
+(2 PARTIAL / 20 UNSUPPORTED claims caught by the critic), markdown
+written to `data/reports/`, then the webhook POST. The full run lived
+in n8n's execution log - trigger node `Daily 07:00`, not a manual node
+run.
+
+Two failures got us there, both fixed in git:
+
+1. **`Invalid wait amount`** - the `Route` Code node only forwarded
+   `job_id`, so on the second loop pass `Wait` received
+   `poll_seconds = undefined`. Route now re-attaches the whole config
+   from `$('Config')` on every iteration (regression-tested in
+   `tests/test_n8n_workflows.py`).
+2. **`access to env vars denied`** - n8n denies `$env.*` reads from
+   nodes unless `N8N_BLOCK_ENV_ACCESS_IN_NODE=false`, and the Config
+   node dies at second zero without it. `n8n/start_n8n.cmd` sets it and
+   loads the repo `.env` into the n8n process environment.
+
+Gotcha worth repeating: n8n 2.x *nests* `.n8n` under
+`N8N_USER_FOLDER`, so pointing that variable at a folder already named
+`.n8n` silently creates a fresh, empty instance one level down -
+symptoms are a login that "stopped working" and migrations running from
+scratch. Pin it at the install's `data` directory.
+
 ## Why the workflows look like this
 
 **Poll, don't wait.** A five-agent report is minutes of LLM work. n8n's
