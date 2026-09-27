@@ -1,8 +1,12 @@
 # AI Market Intelligence & Product Strategy Agent
 
 Monitors e-commerce platform competitors (**Shopify, WooCommerce,
-BigCommerce**) and will generate evidence-backed product opportunities
-and PRDs. Built incrementally, phase by phase.
+BigCommerce**) and generates evidence-backed product opportunities and
+PRDs. Built incrementally, phase by phase.
+
+Deep dives: [ARCHITECTURE.md](ARCHITECTURE.md) (how the pieces fit and why) ·
+[PROJECT.md](PROJECT.md) (build story, decision log, problem-to-fix record,
+roadmap) · [n8n/README.md](n8n/README.md) (orchestration + live-run receipts).
 
 ## Phase 1: data pipeline — fetch → clean → store
 
@@ -301,9 +305,10 @@ next step if this ever runs on more than one machine.
 
 ## Demo
 
-**[`docs/demo.mp4`](docs/demo.mp4)** — the whole system in 76 seconds
-(1280x720, 30 fps, 2.4 MB): collection → retrieval → five agents → the report
-and its citation audit → the eval metrics → the CI gate.
+**[`docs/demo.mp4`](docs/demo.mp4)** — the whole system in 88 seconds
+(1280x720, 30 fps, 2.8 MB): collection → retrieval → five agents → the report
+and its citation audit → the eval metrics → live n8n/Slack operations → the CI
+gate.
 
 [![Watch the demo](docs/demo-poster.png)](docs/demo.mp4)
 
@@ -320,6 +325,8 @@ and its citation audit → the eval metrics → the CI gate.
 ## Layout
 
 ```
+ARCHITECTURE.md  # how the pieces fit: layers, agents, n8n topology, failure modes
+PROJECT.md       # phased build story, decision log, problem-to-fix record, roadmap
 tests/
   test_vector_search.py  # sqlite-vec vs numpy cosine regression suite
   test_agents.py         # agent plumbing: parsing, audits, typed verdicts
@@ -327,21 +334,26 @@ tests/
   test_eval_cli.py       # run_eval gate + job-summary plumbing
   test_api.py            # the service end to end (no LLM, no network)
   test_fetch.py          # retry/backoff and partial-failure behaviour
+  test_n8n_workflows.py  # exported workflow JSONs: structure, budgets, Slack text
+  test_console_and_launcher.py # the console: offline, real endpoints, byte-equality
+  test_demo_assets.py    # the reel/video/poster: sizes, stamps, no staleness
   ci_sim_plugin.py       # `-p` plugin: run the suite with no LLM reachable
   fixtures/
     eval_questions.json  # hand-labeled eval questions (relevant post ids)
     ci_corpus.json       # cleaned corpus for CI (text only, no embeddings)
 conftest.py              # pytest sys.path bootstrap (empty)
+tests/conftest.py        # shared fixtures + the autouse no-network guard
 .github/workflows/ci.yml # CI: pytest + retrieval-only eval on every push
 n8n/
   corpus_refresh.json    # 06:00 — refresh the corpus + rebuild the index
   market_report.json     # 07:00 — generate the report + notify Slack
   README.md              # import steps, env vars, extension ideas
 docs/
-  demo.html              # self-playing 76s walkthrough (?render=1 to freeze it)
+  demo.html              # self-playing 88s walkthrough (?render=1 to freeze it)
   demo.mp4               # the rendered walkthrough (committed)
   demo-poster.png        # title frame, used in this README
   DEMO.md                # recording script, AI-video prompt, voiceover
+  index.html             # GitHub Pages project site (live-run receipts, metrics)
 market_intel/
   config.py         # competitors + queries + chunk/embed knobs (one place to edit)
   fetch.py          # API calls -> raw JSON items (retry + backoff)

@@ -85,7 +85,9 @@
       <tr><th>Execution</th><th>Workflow</th><th>Result</th><th>Receipt</th></tr>
       <tr><td>#2</td><td>corpus refresh 06:00</td><td>fetch 195 · kept 161 · inserted 0 (dedup working)</td><td>Slack: "Corpus refreshed — 0 new posts (169 total)"</td></tr>
       <tr><td>#6</td><td>market report 07:00</td><td>43 poll loops · report succeeded in 1375 s · 22 evidence posts</td><td>Slack webhook answered <code>ok</code></td></tr>
+      <tr><td>#7</td><td>corpus refresh 06:00 (next day)</td><td>ONNX out of memory under RAM starvation → job failed cleanly</td><td>Slack: "⚠ Corpus refresh failed…" answered <code>ok</code></td></tr>
     </table>
+    <p style="color:var(--dim);font-size:.85rem;margin-top:12px">Every n8n-started job is tagged <code>source: "n8n"</code> end to end — job record, API responses, console badge — so scheduled runs are distinguishable from manual ones.</p>
     <p style="color:var(--dim);font-size:.85rem;margin-top:12px">A deliberately-injected poll-loop bug (Route dropping <code>poll_seconds</code>) was caught by the first run and fixed — the demo found a real bug. Full log: <a href="https://github.com/Aabyyss/AI-Market-Intelligence-Product-Strategy-Agent/blob/main/n8n/LIVE_RUN_2026-09-27.md">n8n/LIVE_RUN_2026-09-27.md</a>.</p>
   </div>
 
@@ -99,6 +101,8 @@ uvicorn market_intel.api:app       # the service (or: docker compose up)</div></
 
   <div class="links">
     <a href="https://github.com/Aabyyss/AI-Market-Intelligence-Product-Strategy-Agent">GitHub repo ↗</a>
+    <a href="https://github.com/Aabyyss/AI-Market-Intelligence-Product-Strategy-Agent/blob/main/ARCHITECTURE.md">Architecture ↗</a>
+    <a href="https://github.com/Aabyyss/AI-Market-Intelligence-Product-Strategy-Agent/blob/main/PROJECT.md">Project &amp; roadmap ↗</a>
     <a href="DEMO.md">Demo script &amp; voiceover</a>
     <a href="demo.html">Interactive demo reel</a>
   </div>

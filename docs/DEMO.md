@@ -1,12 +1,12 @@
 # Demo assets
 
-There is already a finished video: **[`demo.mp4`](demo.mp4)** — 76 seconds,
-1280×720, 30 fps, 2.4 MB, committed to the repo. The rest of this file is how
+There is already a finished video: **[`demo.mp4`](demo.mp4)** — 88 seconds,
+1280×720, 30 fps, 2.8 MB, committed to the repo. The rest of this file is how
 it was made, how to re-make it, and how to tell the story around it.
 
 | | what you get | how long | effort |
 |---|---|---|---|
-| **A · the rendered reel** | `docs/demo.mp4`, byte-for-byte reproducible | 76 s | none — it's committed |
+| **A · the rendered reel** | `docs/demo.mp4`, byte-for-byte reproducible | 88 s | none — it's committed |
 | **B · live screen recording** | you narrate the real pipeline running | 90 s | one take, no cuts |
 | **C · AI-generated explainer** | prompt for Sora / Veo / Runway / Kling | 30–60 s | paste a prompt |
 
@@ -16,8 +16,9 @@ it was made, how to re-make it, and how to tell the story around it.
 
 `docs/demo.html` is one self-contained file: no assets, no network, no build
 step. It animates the whole story — architecture, the data pipeline, the five
-agents, the report's citation audit, the eval metrics, the CI gate — in 76
-seconds. `render_demo.py` turns it into a video without a screen recorder.
+agents, the report's citation audit, the eval metrics, live n8n + Slack
+operations, the CI gate — in 88 seconds. `render_demo.py` turns it into a video
+without a screen recorder.
 
 ```bash
 python render_demo.py                 # docs/demo.mp4, 30 fps, 1280x720
