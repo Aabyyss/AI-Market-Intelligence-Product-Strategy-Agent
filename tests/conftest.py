@@ -17,6 +17,30 @@ from market_intel import api
 FIXTURE = "tests/fixtures/ci_corpus.json"
 
 
+@pytest.fixture(autouse=True)
+def no_real_network(monkeypatch):
+    """Make every forgotten network stub fail loudly instead of quietly.
+
+    CI must never reach Hacker News: a single unstubbed refresh test once
+    ran a real multi-minute fetch inside a GitHub Actions run and failed
+    the build. Rather than auditing each test by hand, this guard points
+    api.fetch_all / api.build_report at a raising stub by default, so a
+    test that forgets its own monkeypatch dies in milliseconds with a
+    message naming the fix. Tests that stub these functions still win:
+    their setattr runs after this fixture's on the same monkeypatch.
+    """
+    def _blocked(name):
+        def _boom(*args, **kwargs):
+            raise AssertionError(
+                f"test reached the real api.{name} network path; monkeypatch "
+                f"api.{name} in this test like the rest of the suite does"
+            )
+        return _boom
+
+    monkeypatch.setattr(api, "fetch_all", _blocked("fetch_all"))
+    monkeypatch.setattr(api, "build_report", _blocked("build_report"))
+
+
 @pytest.fixture(scope="session")
 def corpus_db(tmp_path_factory):
     """A DB + vector index built from the tracked fixture (no network)."""
