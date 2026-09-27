@@ -103,7 +103,7 @@ def test_reel_exposes_the_hook_the_renderer_drives():
 
 def test_reel_scene_table_is_well_formed():
     durations = scene_durations_ms(reel())
-    assert len(durations) == 7, f"expected 7 scenes, parsed {durations}"
+    assert len(durations) == 8, f"expected 8 scenes, parsed {durations}"
     assert all(ms >= 1000 for ms in durations), durations
     assert mp4_shape(VIDEO)["duration"] == pytest.approx(sum(durations) / 1000, abs=0.1)
 

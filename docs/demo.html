@@ -177,7 +177,7 @@
       <span class="badge reveal" style="--d:900"><b>RAG</b> · bge-small + sqlite-vec</span>
       <span class="badge reveal" style="--d:1000"><b>5 agents</b> · typed JSON</span>
       <span class="badge reveal" style="--d:1100"><b>FastAPI</b> · Docker</span>
-      <span class="badge reveal" style="--d:1200"><b>n8n</b> · scheduled</span>
+      <span class="badge reveal" style="--d:1200"><b>n8n</b> · verified live</span>
       <span class="badge reveal" style="--d:1300"><b>CI</b> · retrieval quality gate</span>
     </div>
   </section>
@@ -235,13 +235,13 @@
       <div class="bar"><span></span><span></span><span></span></div>
       <div><span class="prompt">$</span> python run_pipeline.py</div>
       <div class="out">&nbsp;&nbsp;queries&nbsp;&nbsp;: 15 (3 competitors × 5 angles)</div>
-      <div class="out">&nbsp;&nbsp;kept&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: 83 posts after dedupe + brand filtering</div>
+      <div class="out">&nbsp;&nbsp;kept&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: 169 posts after dedupe + brand filtering</div>
       <div><span class="prompt">$</span> python run_index.py</div>
-      <div class="out">&nbsp;&nbsp;posts&nbsp;&nbsp;: 83</div>
-      <div class="out">&nbsp;&nbsp;chunks&nbsp;: 115 (overlapping windows)</div>
+      <div class="out">&nbsp;&nbsp;posts&nbsp;&nbsp;: 169</div>
+      <div class="out">&nbsp;&nbsp;chunks&nbsp;: 217 (overlapping windows)</div>
       <div class="ok">&nbsp;&nbsp;model&nbsp;&nbsp;: BAAI/bge-small-en-v1.5 (384 dims, local, no API key)</div>
       <div><span class="prompt">$</span> python run_corpus.py export</div>
-      <div class="out">&nbsp;&nbsp;exported: 83 posts → tests/fixtures/ci_corpus.json</div>
+      <div class="out">&nbsp;&nbsp;exported → tests/fixtures/ci_corpus.json (network-free CI)</div>
       <div class="hl">&nbsp;&nbsp;→ CI rebuilds this corpus with zero network: same numbers, every push</div>
       <div><span class="prompt">$</span> <span class="cursor"></span></div>
     </div>
@@ -344,18 +344,50 @@
       </div>
     </div>
     <p class="sub reveal" style="--d:1050;margin-top:22px">
-      Measured against hand-labeled questions over the 83-post corpus. Retrieval needs no
+      Measured against hand-labeled questions over the 169-post corpus. Retrieval needs no
       LLM, so <span class="mono">run_eval.py</span> gates CI on every push.
     </p>
     <p class="mono reveal" style="--d:1200;margin-top:10px;font-size:13px;color:var(--dim)">
       CI gate · recall@5 0.820 &gt;= 0.700 <span class="ok">PASS</span> ·
-      MRR 1.000 &gt;= 0.800 <span class="ok">PASS</span> · 96 tests
+      MRR 1.000 &gt;= 0.800 <span class="ok">PASS</span> · 115 tests
     </p>
   </section>
 
-  <!-- 6 — close -->
+  <!-- 6 — live ops -->
   <section class="scene" id="s6">
-    <div class="kicker reveal">06 · shipped</div>
+    <div class="kicker reveal">06 · live ops</div>
+    <h2 class="reveal" style="--d:120">Scheduled runs you can audit — success and failure</h2>
+    <div class="split">
+      <div class="term reveal" style="--d:300">
+        <div class="bar"><span></span><span></span><span></span></div>
+        <div><span class="prompt">n8n</span> · self-hosted · executions</div>
+        <div class="out">06:00 corpus refresh → job 96843cae · <span class="ok">succeeded</span> · 6m 47s</div>
+        <div class="out">07:00 market report → 43 polls · 22 evidence posts · 22m 55s</div>
+        <div class="out">06:00 refresh, next day → fetch OOM → <span class="bad">failed</span> → alert</div>
+        <div class="hl">each run = one API job, tagged source: "n8n"</div>
+        <div><span class="prompt">console</span> · /console — live jobs, source badges, report viewer</div>
+        <div><span class="prompt">$</span> <span class="cursor"></span></div>
+      </div>
+      <div>
+        <div class="claim reveal" style="--d:600">
+          Corpus refreshed — 0 new posts (169 total)
+          <div class="meta">Slack · #market-intel · 06:47</div>
+        </div>
+        <div class="claim reveal" style="--d:900">
+          Market report ready — 22 evidence posts · verdicts: 2 PARTIAL / 20 UNSUPPORTED · 22m
+          <div class="meta">Slack · #market-intel · 07:23</div>
+        </div>
+        <div class="claim reveal" style="--d:1200;border-left-color:var(--red)">
+          Corpus refresh failed — ONNX out of memory · check the job log
+          <div class="meta">Slack · #market-intel · the failure path is tested too</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 — close -->
+  <section class="scene" id="s7">
+    <div class="kicker reveal">07 · shipped</div>
     <h1 class="reveal" style="--d:120;font-size:38px">Python for the intelligence.<br>n8n for the business workflow.</h1>
     <div class="cards" style="grid-template-columns:repeat(3,1fr);margin-top:30px">
       <div class="card reveal" style="--d:400">
@@ -364,7 +396,8 @@
           <span class="ok">POST</span> /reports → 202 job<br>
           <span class="ok">GET</span> /jobs/{id} → status<br>
           <span class="ok">POST</span> /search · /ask · /eval<br>
-          <span class="ok">GET</span> /health → corpus + provider
+          <span class="ok">GET</span> /health → corpus + provider<br>
+          <span class="ok">GET</span> /console → browser UI
         </div>
       </div>
       <div class="card reveal" style="--d:550">
@@ -382,7 +415,7 @@
           06:00 refresh corpus<br>
           07:00 generate report<br>
           poll → find a failed report<br>
-          Slack: verdicts + citation health
+          Slack receipts: success + failure
         </div>
       </div>
     </div>
@@ -392,7 +425,7 @@
       the same numbers get better.
     </p>
     <p class="mono reveal" style="--d:1050;margin-top:18px;font-size:13px;color:var(--green)">
-      github.com/…/market-intel · v1.0.0
+      github.com/Aabyyss/AI-Market-Intelligence-Product-Strategy-Agent · v1.1.1
     </p>
   </section>
 
@@ -410,7 +443,8 @@
     { id: "s3", ms: 13000, label: "03 · agents" },
     { id: "s4", ms: 13000, label: "04 · report" },
     { id: "s5", ms: 11000, label: "05 · evaluation" },
-    { id: "s6", ms: 9000,  label: "06 · shipped" },
+    { id: "s6", ms: 12000, label: "06 · live ops" },
+    { id: "s7", ms: 9000,  label: "07 · shipped" },
   ];
   const CROSSFADE_MS = 400;
   const stage = document.getElementById("stage");
