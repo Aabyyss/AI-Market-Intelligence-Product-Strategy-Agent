@@ -309,6 +309,9 @@ def test_report_job_writes_the_markdown_to_disk(client, monkeypatch, tmp_path):
 def test_jobs_record_who_started_them(client, monkeypatch):
     """The n8n demo needs to tell scheduled runs from manual ones."""
     monkeypatch.setattr(api, "build_report", lambda *a, **k: fake_summary())
+    # stub the fetcher too: without it the refresh job would hit Hacker
+    # News for real, which CI must never do (network + rate limits)
+    monkeypatch.setattr(api, "fetch_all", lambda **kw: {})
     job = client.post("/reports", json={"brief": "fees", "source": "n8n"}).json()
     assert job["source"] == "n8n"
     done = wait_for_job(client, job["job_id"])
@@ -317,6 +320,7 @@ def test_jobs_record_who_started_them(client, monkeypatch):
     # a source on a refresh, and the api default when none is given
     refresh = client.post("/pipeline/refresh", json={"source": "n8n", "reindex": False}).json()
     assert refresh["source"] == "n8n"
+    wait_for_job(client, refresh["job_id"])
     plain = client.post("/reports", json={"brief": "fees"}).json()
     assert plain["source"] == "api"
 
