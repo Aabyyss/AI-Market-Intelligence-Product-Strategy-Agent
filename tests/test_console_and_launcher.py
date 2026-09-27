@@ -70,6 +70,13 @@ def test_console_calls_only_real_endpoints(client, monkeypatch):
         assert job["status"] in {"running", "queued", "succeeded"}
 
 
+def test_console_renders_a_source_badge_for_scheduled_jobs():
+    """n8n-started jobs are visibly different from manual ones."""
+    html = CONSOLE.read_text(encoding="utf-8")
+    assert "j.source" in html, "job row does not read the source field"
+    assert "pill" in html
+
+
 def test_free_port_returns_a_bindable_port():
     import socket
 
