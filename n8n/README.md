@@ -109,6 +109,13 @@ Gotcha worth repeating: n8n 2.x *nests* `.n8n` under
 symptoms are a login that "stopped working" and migrations running from
 scratch. Pin it at the install's `data` directory.
 
+Editing the committed JSONs does not change a running n8n - the import
+was a copy. After pulling workflow changes (for example the
+`source: 'n8n'` body field or the raised poll budget), re-import the
+file: Workflows -> ... -> Import from File, choose the existing
+workflow, and n8n versions it in place. Verify with a manual run
+before trusting the next scheduled one.
+
 ## Why the workflows look like this
 
 **Poll, don't wait.** A five-agent report is minutes of LLM work. n8n's
