@@ -111,10 +111,22 @@ scratch. Pin it at the install's `data` directory.
 
 Editing the committed JSONs does not change a running n8n - the import
 was a copy. After pulling workflow changes (for example the
-`source: 'n8n'` body field or the raised poll budget), re-import the
-file: Workflows -> ... -> Import from File, choose the existing
-workflow, and n8n versions it in place. Verify with a manual run
-before trusting the next scheduled one.
+`source: 'n8n'` body field or the raised poll budget), push them into
+the live instance. Two ways, verified on n8n 2.22.6:
+
+1. **Public API (scriptable, keeps the workflow id):** mint an owner
+   API key, then `GET /api/v1/workflows/{id}` and `PUT` it back with
+   only `{name, nodes, connections, settings}` from the repo file -
+   `id`, `active` and `versionId` are read-only in the body and must be
+   omitted. The internal REST API (`PUT /rest/workflows/{id}`) 404s by
+   design; the public one is the supported route.
+2. **Editor UI (manual):** Workflows -> ... -> Import from File, choose
+   the existing workflow, and n8n versions it in place.
+
+Either way, verify before trusting the next scheduled run: fetch the
+workflow and check the changed field is really there, then fire one
+manual run and confirm it end to end (the refresh run fired after the
+API push produced a job with `source: "n8n"` on the market_intel side).
 
 ## Why the workflows look like this
 
