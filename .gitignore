@@ -11,3 +11,4 @@ data/
 # local secrets (Slack webhook, API keys) - never commit
 .env
 .env.local
+LINKEDIN_POST.md
