@@ -48,7 +48,7 @@
             {
               "id": "cfg-max",
               "name": "max_attempts",
-              "value": "={{ Number($env.MARKET_INTEL_MAX_POLLS || 40) }}",
+              "value": "={{ Number($env.MARKET_INTEL_MAX_POLLS || 60) }}",
               "type": "number"
             },
             {

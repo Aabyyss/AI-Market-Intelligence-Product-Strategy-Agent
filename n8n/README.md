@@ -52,7 +52,7 @@ Both are importable: **n8n → Workflows → ⋯ → Import from File**.
    | `MARKET_INTEL_BRIEF` | `fees, payouts and platform switching` | the research question |
    | `MARKET_INTEL_PER_QUERY` | `4` | evidence chunks retrieved per query |
    | `MARKET_INTEL_FETCH_LIMIT` | `25` | HN hits per query on refresh |
-   | `MARKET_INTEL_MAX_POLLS` | `40` / `60` | give up after N polls |
+   | `MARKET_INTEL_MAX_POLLS` | `60` | give up after N polls |
    | `MARKET_INTEL_POLL_SECONDS` | `45` | seconds between report polls |
    | `SLACK_WEBHOOK_URL` | *(empty)* | incoming-webhook URL; empty = skip notification |
 
@@ -127,7 +127,9 @@ place instead of being duplicated across IFs.
 **Bounded retries.** `max_attempts` turns "the API is wedged" into a
 `timeout` failure with a Slack message, instead of an execution that
 polls until the heat death of the universe. A report on a CPU-only box
-genuinely takes ~20 minutes, which is why the default is 40 polls × 45 s.
+genuinely takes ~20 minutes. The measured live run was 1375 s, so the
+default budget is 60 polls × 45 s (2700 s) — roughly a 2x margin before
+the workflow reports a timeout.
 
 **Silence is a feature.** The refresh posts to Slack only when it
 actually found something (`changed`); a daily "0 new posts" message just
