@@ -18,4 +18,4 @@ Evaluation runs through all of it: labeled questions score retrieval and
 answer citation quality (run_eval.py), and gate CI on every push.
 """
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
