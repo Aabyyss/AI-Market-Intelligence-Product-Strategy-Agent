@@ -368,6 +368,7 @@ app.py          # desktop launcher: free port, wait /health, open /console
 render_demo.py  # CLI: render docs/demo.html into docs/demo.mp4, frame by frame
 Dockerfile      # model baked in + sqlite-vec smoke-tested at build
 docker-compose.yml # api + local Ollama (with the model service)
+n8n/            # workflow JSONs, live-run log, on-demand runbook + tools
 .env.example    # every knob, with defaults
 ```
 
@@ -379,6 +380,10 @@ docker-compose.yml # api + local Ollama (with the model service)
 4. ✅ Phase 4 — Agents: research → competitor → customer → strategy → critic
 5. ✅ Phase 5 — n8n: scheduled workflows (corpus refresh + report) with
    job polling and Slack notifications
+   - Verified live 2026-09-27: both workflows ran end-to-end against the
+     local API through their schedule triggers and delivered real Slack
+     notifications — evidence in `n8n/LIVE_RUN_2026-09-27.md`, on-demand
+     firing recipe in `n8n/RUNBOOK.md`.
 6. ✅ Phase 6 — Production: FastAPI service (jobs, request ids, uniform
    errors), Docker + compose, env-var config, evaluation harness gating CI
 
