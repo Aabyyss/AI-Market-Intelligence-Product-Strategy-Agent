@@ -108,8 +108,9 @@ async function refreshHealth() {
 function jobRow(j) {
   const cls = j.status === "succeeded" ? "ok" : j.status === "failed" ? "bad" : "run";
   const label = j.kind === "report" ? esc(j.result?.topic ?? "report") : "refresh";
+  const src = j.source && j.source !== "api" ? ` <span class="pill run">${esc(j.source)}</span>` : "";
   const t = document.createElement("td");
-  t.innerHTML = `<a href="#" data-job="${esc(j.job_id)}">${label}</a>
+  t.innerHTML = `<a href="#" data-job="${esc(j.job_id)}">${label}</a>${src}
     <span class="pill ${cls}">${esc(j.status)}</span>`;
   t.querySelector("a").onclick = ev => { ev.preventDefault(); showJob(j.job_id); };
   return t;

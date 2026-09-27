@@ -76,7 +76,7 @@
         "url": "={{ $json.api_base }}/pipeline/refresh",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ limit: $json.limit, reindex: true }) }}",
+        "jsonBody": "={{ JSON.stringify({ limit: $json.limit, reindex: true, source: 'n8n' }) }}",
         "options": {
           "timeout": 30000
         }

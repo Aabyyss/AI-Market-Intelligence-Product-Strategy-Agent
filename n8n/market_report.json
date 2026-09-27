@@ -82,7 +82,7 @@
         "url": "={{ $json.api_base }}/reports",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ brief: $json.brief, per_query: $json.per_query }) }}",
+        "jsonBody": "={{ JSON.stringify({ brief: $json.brief, per_query: $json.per_query, source: 'n8n' }) }}",
         "options": {
           "timeout": 30000
         }

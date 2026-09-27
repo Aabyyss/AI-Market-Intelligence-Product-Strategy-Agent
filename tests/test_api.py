@@ -306,6 +306,21 @@ def test_report_job_writes_the_markdown_to_disk(client, monkeypatch, tmp_path):
     assert written[0].read_text(encoding="utf-8").startswith("# Market report")
 
 
+def test_jobs_record_who_started_them(client, monkeypatch):
+    """The n8n demo needs to tell scheduled runs from manual ones."""
+    monkeypatch.setattr(api, "build_report", lambda *a, **k: fake_summary())
+    job = client.post("/reports", json={"brief": "fees", "source": "n8n"}).json()
+    assert job["source"] == "n8n"
+    done = wait_for_job(client, job["job_id"])
+    assert done["source"] == "n8n"
+
+    # a source on a refresh, and the api default when none is given
+    refresh = client.post("/pipeline/refresh", json={"source": "n8n", "reindex": False}).json()
+    assert refresh["source"] == "n8n"
+    plain = client.post("/reports", json={"brief": "fees"}).json()
+    assert plain["source"] == "api"
+
+
 def test_report_validates_and_defaults_competitors(client, monkeypatch):
     seen = {}
 

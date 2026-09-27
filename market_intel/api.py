@@ -199,6 +199,10 @@ class ReportRequest(BaseModel):
     per_query: int = Field(4, ge=1, le=8,
                            description="evidence chunks retrieved per query")
     provider: str | None = None
+    source: str = Field(
+        "api", min_length=1, max_length=32,
+        description="free tag identifying the caller (e.g. n8n, console, curl)",
+    )
 
     @field_validator("competitors")
     @classmethod
@@ -212,12 +216,20 @@ class RefreshRequest(BaseModel):
     limit: int = Field(25, ge=1, le=100,
                        description="Hacker News hits per query")
     reindex: bool = Field(True, description="rebuild the vector index afterwards")
+    source: str = Field(
+        "api", min_length=1, max_length=32,
+        description="free tag identifying the caller (e.g. n8n, console, curl)",
+    )
 
 
 class JobOut(BaseModel):
     job_id: str
     kind: str = Field(description="report | refresh")
     status: str = Field(description="queued | running | succeeded | failed")
+    source: str = Field(
+        "api",
+        description="who started it: api (direct client) or n8n (scheduled flow)",
+    )
     created_at: str
     started_at: str | None = None
     finished_at: str | None = None
@@ -437,6 +449,7 @@ def _job_public(job: dict) -> JobOut:
         job_id=job["job_id"],
         kind=job["kind"],
         status=job["status"],
+        source=job.get("source", "api"),
         created_at=job["created_at"],
         started_at=job["started_at"],
         finished_at=job["finished_at"],
@@ -600,6 +613,7 @@ def start_report(req: ReportRequest) -> JobOut:
     provider = get_provider(req.provider)
     job = _start_job(
         "report",
+        source=req.source,
         brief=req.brief,
         competitors=req.competitors or list(config.COMPETITORS),
         per_query=req.per_query,
@@ -615,7 +629,7 @@ def start_refresh(req: RefreshRequest) -> JobOut:
     Idempotent: posts already in the DB are skipped, so the schedule can
     run it daily without duplicating anything.
     """
-    job = _start_job("refresh", limit=req.limit, reindex=req.reindex)
+    job = _start_job("refresh", source=req.source, limit=req.limit, reindex=req.reindex)
     return _job_public(job)
 
 
