@@ -109,19 +109,27 @@ def plan_queries(
 
 
 def gather_evidence(
-    conn, queries: list[str], per_query: int = 4, max_per_competitor: int = 8
+    conn, queries: list[str], per_query: int = 4, max_per_competitor: int = 8,
+    hit_counts: dict[str, int] | None = None,
 ) -> list[dict]:
     """Run the research queries, dedupe by post, assign global numbers.
 
     Returns one list of evidence items across all competitors; each item
     carries a global ``n`` used as its [n] citation number everywhere in
     the report (analysts cite the same numbers the Sources section maps).
+
+    When ``hit_counts`` is a dict it is filled with the raw per-query hit
+    count (before dedupe) — the feedback signal the self-learning loop
+    uses to tell useful queries from gaps.
     """
     items: list[dict] = []
     seen: set[str] = set()
     counts: dict[str, int] = {}
     for q in queries:
-        for r in search(conn, q, top_k=per_query):
+        results = search(conn, q, top_k=per_query)
+        if hit_counts is not None:
+            hit_counts[q] = len(results)
+        for r in results:
             comp = r["competitor"]
             if r["post_id"] in seen or counts.get(comp, 0) >= max_per_competitor:
                 continue
@@ -774,10 +782,37 @@ def build_report(
     competitors: list[str],
     provider: str,
     per_query: int = 4,
+    learn: bool = True,
 ) -> dict:
-    """Run all five agents and assemble the market report."""
+    """Run all five agents and assemble the market report.
+
+    ``learn`` (the default) closes the self-learning loop around the
+    query plan: previously-successful queries for this brief are seeded
+    into the plan, and after the run every query's hit count is fed
+    back (hits reinforced, misses remembered as gaps). See
+    ``market_intel.learning`` — best-effort by design, never fatal.
+    """
     queries = plan_queries(brief, competitors, provider)
-    items = gather_evidence(conn, queries, per_query=per_query)
+
+    seeds: list[str] = []
+    if learn:
+        try:
+            from market_intel import learning
+            seeds = learning.seed_queries(conn, brief)
+            queries = learning.merge_seeds(queries, seeds)
+        except Exception:  # noqa: BLE001 - learning must never break a report
+            pass
+
+    hit_counts: dict[str, int] = {}
+    items = gather_evidence(conn, queries, per_query=per_query,
+                            hit_counts=hit_counts)
+
+    if learn:
+        try:
+            from market_intel import learning
+            learning.feedback(conn, brief, queries, hit_counts)
+        except Exception:  # noqa: BLE001
+            pass
 
     competitor_sections: list[dict] = []
     for comp in competitors:
@@ -851,6 +886,7 @@ def build_report(
         "provider": provider,
         "model": model_for(provider),
         "queries": queries,
+        "learned_queries": seeds,
         "evidence": len(items),
         "per_competitor": {
             c: sum(1 for it in items if it["competitor"] == c)

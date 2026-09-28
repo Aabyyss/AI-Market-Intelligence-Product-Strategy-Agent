@@ -71,6 +71,7 @@ from market_intel.clean import clean_posts
 from market_intel.embed import get_embedder
 from market_intel.fetch import fetch_all, planned_queries
 from market_intel.llm import LLMError, model_for, resolve_provider
+from market_intel import learning
 from market_intel.logging_config import (
     new_request_id,
     request_id_var,
@@ -512,6 +513,7 @@ def _trimmed_summary(summary: dict) -> dict:
         "brief", "competitors", "provider", "model", "queries", "evidence",
         "per_competitor", "verdicts", "citation_audit",
         "unstructured_sections", "generated_at", "report_path",
+        "learned_queries",
     )
     return {k: summary[k] for k in keep if k in summary}
 
@@ -681,6 +683,16 @@ def get_job_markdown(job_id: str) -> PlainTextResponse:
 
 
 # --- evaluation --------------------------------------------------------
+
+
+@app.get("/learning")
+def learning_endpoint(conn=Depends(get_conn)) -> dict:
+    """What the self-learning loop knows: topics, seeds, strengths.
+
+    ``top`` is ordered by strength (times a query retrieved evidence)
+    then recency, so the first rows are the query plan's learned bets.
+    """
+    return learning.stats(conn)
 
 
 @app.post("/eval")
