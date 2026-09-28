@@ -196,8 +196,11 @@ async def grab(
 async def render(
     frames_dir: Path, fps: int, keep: bool, limit: float | None,
     settle: int, fmt: str, quality: int, browser_arg: str | None,
+    theme: str | None = None,
 ) -> float:
     url = REEL.resolve().as_uri() + "?render=1"
+    if theme:
+        url += f"&theme={theme}"
     browser = find_browser(browser_arg)
     port = free_port()
     profile = Path(tempfile.mkdtemp(prefix="reel-profile-"))
@@ -250,9 +253,12 @@ async def render(
         print(f"captured {count} frames in {time.monotonic() - started:.0f}s")
 
         # A poster frame (t=1.4s, after the title has revealed) makes the video
-        # embeddable in a README without autoplaying it.
+        # embeddable in a README without autoplaying it. Light-theme renders
+        # get their own poster so the two can be embedded side by side.
         await client.evaluate("window.__reel.seek(1400)")
-        await grab(client, ROOT / "docs" / "demo-poster.png", settle)
+        poster = (ROOT / "docs" / f"demo-poster-{theme}.png" if theme
+                  else ROOT / "docs" / "demo-poster.png")
+        await grab(client, poster, settle)
     finally:
         proc.terminate()
         try:
@@ -301,6 +307,7 @@ def main() -> None:
         render(
             frames_dir, ARGS.fps, ARGS.keep_frames,
             ARGS.only_seconds, ARGS.settle, ARGS.format, ARGS.quality, ARGS.browser,
+            ARGS.theme,
         )
     )
     encode(frames_dir, ARGS.fps, ARGS.out, "jpg" if ARGS.format == "jpeg" else ARGS.format)
@@ -338,6 +345,12 @@ if __name__ == "__main__":
         "--only-seconds",
         type=float,
         help="render only the first N seconds — a smoke test for the pipeline",
+    )
+    parser.add_argument(
+        "--theme",
+        choices=("light",),
+        help="render the reel's light palette (docs/demo.html?theme=light); "
+        "the poster is written to demo-poster-<theme>.png",
     )
     parser.add_argument("--keep-frames", action="store_true", help="keep the PNG frames")
     ARGS = parser.parse_args()

@@ -160,6 +160,33 @@
 </style>
 </head>
 <body>
+<!-- ?theme=light switches the reel to its light palette (render_demo.py
+     drives this for demo-light.mp4); tokens mirror the console's. -->
+<style>
+  html[data-reel-theme="light"] {
+    --bg: #f6f8fa; --panel: #ffffff; --panel-2: #eef1f4; --line: #d5dbe1;
+    --text: #1f2328; --dim: #59636e;
+    --green: #1a7f37; --blue: #0969da; --amber: #9a6700;
+    --red: #cf222e; --violet: #8250df;
+  }
+  html[data-reel-theme="light"] body { background: #e6e9ec; }
+  html[data-reel-theme="light"] #grain {
+    background-image: linear-gradient(#e2e7ec 1px, transparent 1px),
+                      linear-gradient(90deg, #e2e7ec 1px, transparent 1px);
+  }
+  html[data-reel-theme="light"] #stage {
+    background:
+      radial-gradient(1100px 520px at 12% -10%, #dbe9f9 0%, transparent 60%),
+      radial-gradient(900px 500px at 105% 110%, #e8e4f8 0%, transparent 55%),
+      var(--bg);
+  }
+  html[data-reel-theme="light"] .term { background: #ffffff; }
+  html[data-reel-theme="light"] .term .bar span { background: #d0d7de; }
+  html[data-reel-theme="light"] .term .bar span:first-child { background: #b6c0ca; }
+  html[data-reel-theme="light"] .progress { background: #dbe1e7; }
+  html[data-reel-theme="light"] .bar-row .track { background: #ffffff; }
+  html[data-reel-theme="light"] .claim { background: #f0f4f8; }
+</style>
 <div id="stage">
   <div id="grain"></div>
 
@@ -179,6 +206,7 @@
       <span class="badge reveal" style="--d:1100"><b>FastAPI</b> · Docker</span>
       <span class="badge reveal" style="--d:1200"><b>n8n</b> · verified live</span>
       <span class="badge reveal" style="--d:1300"><b>CI</b> · retrieval quality gate</span>
+      <span class="badge reveal" style="--d:1400"><b>Multi-user</b> · self-learning queries</span>
     </div>
   </section>
 
@@ -425,7 +453,7 @@
       the same numbers get better.
     </p>
     <p class="mono reveal" style="--d:1050;margin-top:18px;font-size:13px;color:var(--green)">
-      github.com/Aabyyss/AI-Market-Intelligence-Product-Strategy-Agent · v1.1.1
+      github.com/Aabyyss/AI-Market-Intelligence-Product-Strategy-Agent · v1.2.0
     </p>
   </section>
 
@@ -436,6 +464,8 @@
 
 <script>
 (function () {
+  if (new URLSearchParams(location.search).get("theme") === "light")
+    document.documentElement.setAttribute("data-reel-theme", "light");
   const SCENES = [
     { id: "s0", ms: 7000,  label: "00 · intro" },
     { id: "s1", ms: 12000, label: "01 · architecture" },
