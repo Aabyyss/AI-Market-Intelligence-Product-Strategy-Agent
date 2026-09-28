@@ -115,6 +115,15 @@ retrieved), writes the report file, and returns the summary the API
 serves - the markdown itself is streamed from disk, never embedded in a
 poll response.
 
+**The adaptive tail.** Each report closes a small learning loop over
+its own query plan (`learning.py`): queries that retrieved nothing are
+remembered per brief, previously-successful queries are seeded into the
+next report for that brief (strongest first, capped at two), and every
+query's hit count is fed back after the run. It adapts the *queries*,
+never the model, and it is additive-only - planned queries always run,
+so a bad memory costs at most two searches. Best-effort by design:
+a broken store degrades to "no seeds", never to a failed report.
+
 ### 5. Service - `api.py`, `logging_config.py`
 
 FastAPI in front of everything. Long operations run on a one-worker
@@ -184,6 +193,24 @@ Job records live in memory (typed pydantic models); finished reports are
 markdown files under `data/reports/`. Everything durable survives in
 SQLite plus those files.
 
+Two more tables live beside the corpus (and one in its own file):
+
+```
+learning(topic, query, strength, first_seen, last_seen)  -- in the corpus DB
+users(username, pw_salt, pw_hash, role, created_at)      -- data/auth.db
+sessions(token_hash, username, created_at, expires_at)   -- data/auth.db
+```
+
+Accounts are stdlib-only: PBKDF2-HMAC-SHA256 passwords with per-user
+salts, opaque 7-day bearer tokens stored only as SHA-256 hashes. The
+service is **open mode** until the first account registers - that
+account becomes admin and protected endpoints (reports, refresh, jobs)
+start demanding `Authorization: Bearer`. Jobs record the account that
+started them; lists are scoped per user, admins see everything, and
+foreign job ids return 404 (not 403) so they cannot be enumerated. A
+static `MARKET_INTEL_SERVICE_TOKEN` authenticates the n8n schedules as
+user `n8n`, so automation survives lockdown.
+
 ## Quality gates
 
 | gate | where | what it pins |
@@ -192,6 +219,8 @@ SQLite plus those files.
 | agent plumbing | `tests/test_agents.py` | tolerant parsing, audits, typed verdicts |
 | service | `tests/test_api.py` | HTTP contract, job state machine, no leaked tracebacks |
 | console | `tests/test_console_and_launcher.py` | offline, real endpoints, byte-equality |
+| learning loop | `tests/test_learning.py` | seed ranking/caps, hit/gap split, graceful degradation |
+| auth | `tests/test_auth.py` | lockdown lifecycle, session hashing, per-user scoping |
 | n8n exports | `tests/test_n8n_workflows.py` | structure, budgets, ASCII Slack text |
 | retrieval quality | `run_eval.py --min-mrr --min-recall` | CI gate against labeled questions |
 
@@ -219,6 +248,8 @@ than they look:
 | job worker restarts mid-run | job history lost (reports persist on disk); documented limit | `api.py` |
 | memory pressure (API + Ollama + tests at once) | ONNX can fail to allocate; serialize heavy local runs | ops note in README |
 | a test hits the network | fails immediately with a "stub me" message | `tests/conftest.py` |
+| a learned seed makes reports worse | capped at 2 seeds, additive-only, `MARKET_INTEL_LEARNING=0` freezes the loop | `learning.py` |
+| auth DB corrupted/missing | resolve fails open-safe: requests re-auth, nothing 500s | `auth.py`, `api.py` |
 
 ## Extension points
 

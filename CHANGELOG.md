@@ -1,5 +1,43 @@
 # Changelog
 
+## 1.2.0 - 2026-09-27
+
+The service becomes multi-user and the query plan becomes adaptive;
+the console gets light mode; the project site gets a one-click way to
+try the UI.
+
+### Added
+- **Multi-user auth** (`market_intel/auth.py`, `/auth/*`): register /
+  login / logout / me / users. PBKDF2-HMAC-SHA256 passwords, opaque
+  7-day bearer tokens stored hashed, in a separate `data/auth.db`.
+  Open mode until the first account exists; that account becomes admin
+  and protected endpoints lock down. Jobs record who started them,
+  lists are scoped per user (admins see all), foreign job ids 404.
+  `MARKET_INTEL_SERVICE_TOKEN` authenticates the n8n flows as user
+  `n8n`.
+- **Self-learning query loop** (`market_intel/learning.py`,
+  `GET /learning`): report queries that retrieve nothing are remembered
+  per brief, previously-successful queries are seeded into the next
+  report's plan (strongest first, capped), and every query's hit count
+  is fed back after each run. Additive and best-effort by design;
+  `MARKET_INTEL_LEARNING=0` freezes it; report summaries carry
+  `learned_queries`.
+- Console: light mode with a persisted toggle (respects
+  `prefers-color-scheme` on first visit; shift+T), sign-in card, per-user
+  job tags; `Ctrl/Cmd+K` focuses the ask box.
+- Demo videos in **both themes** (`docs/demo.mp4`, `docs/demo-light.mp4`)
+  via `render_demo.py --theme light`.
+- `docs/preview.html`: a static, interactive preview of the console
+  (canned data from the verified live runs) on the project site - the
+  one-click "try it" answer for the README and social posts.
+- `tests/test_learning.py` (9) and `tests/test_auth.py` (11); suite now
+  at 135 tests.
+
+### Changed
+- `tests/conftest.py` clears the in-memory job registry per test, so
+  job history cannot leak between tests now that jobs carry users.
+- Project site links the preview first and embeds both theme videos.
+
 ## 1.1.1 - 2026-09-27
 
 The automation layer ran for real: both n8n workflows executed

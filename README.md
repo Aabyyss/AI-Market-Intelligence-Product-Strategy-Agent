@@ -262,7 +262,9 @@ other than a human can drive it:
 | `POST /ask` | evidence-backed answer + validated citations |
 | `POST /reports` | queue a market report → `202` + job id |
 | `POST /pipeline/refresh` | queue a corpus refresh → `202` + job id |
-| `GET /jobs`, `/jobs/latest`, `/jobs/{id}` | job status + typed result |
+| `GET /jobs`, `/jobs/latest`, `/jobs/{id}` | job status + typed result (per-user once authenticated) |
+| `GET /learning` | what the self-learning loop knows: seeds, strengths |
+| `POST /auth/register` `/auth/login` `/auth/logout` | accounts + 7-day bearer sessions (open mode until the first user) |
 | `GET /jobs/{id}/markdown` | the rendered report |
 | `POST /eval` | retrieval metrics against the labeled questions |
 
@@ -308,7 +310,13 @@ next step if this ever runs on more than one machine.
 **[`docs/demo.mp4`](docs/demo.mp4)** — the whole system in 88 seconds
 (1280x720, 30 fps, 2.8 MB): collection → retrieval → five agents → the report
 and its citation audit → the eval metrics → live n8n/Slack operations → the CI
-gate.
+gate. **[`docs/demo-light.mp4`](docs/demo-light.mp4)** is the same walkthrough
+in the console's light theme (`python render_demo.py --theme light`).
+
+**Try the UI in one click:** the project site hosts an
+[interactive preview](https://aabyyss.github.io/AI-Market-Intelligence-Product-Strategy-Agent/preview.html)
+of the console running on data from the verified live runs — no install, no
+backend, clearly labeled. The real console needs the API running (below).
 
 [![Watch the demo](docs/demo-poster.png)](docs/demo.mp4)
 
@@ -351,10 +359,14 @@ n8n/
 docs/
   demo.html              # self-playing 88s walkthrough (?render=1 to freeze it)
   demo.mp4               # the rendered walkthrough (committed)
+  demo-light.mp4         # the same walkthrough in the console's light theme
+  preview.html           # static interactive console preview (Pages "try it")
   demo-poster.png        # title frame, used in this README
   DEMO.md                # recording script, AI-video prompt, voiceover
   index.html             # GitHub Pages project site (live-run receipts, metrics)
 market_intel/
+  auth.py           # accounts + bearer sessions (PBKDF2, separate auth.db)
+  learning.py       # self-learning query loop: gaps, seeds, reinforcement
   config.py         # competitors + queries + chunk/embed knobs (one place to edit)
   fetch.py          # API calls -> raw JSON items (retry + backoff)
   clean.py          # normalize, drop junk, dedupe -> records
