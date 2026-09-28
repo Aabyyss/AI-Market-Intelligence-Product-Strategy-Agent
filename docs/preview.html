@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>market-intel console — interactive preview</title>
+<style>
+  /* Same tokens as the real console (market_intel/console.html); this file
+     is a static snapshot: canned data, no backend, no network. It exists so
+     anyone can feel the UI from the GitHub Pages site in one click. */
+  :root{
+    color-scheme:dark;
+    --bg:#0b0f14;--panel:#11161d;--panel2:#161d26;--line:#26303c;--line2:#324050;
+    --fg:#e6edf3;--dim:#98a4b0;--faint:#5c6873;
+    --acc:#4c9ffe;--acc-contrast:#ffffff;--acc-soft:rgba(76,159,254,.12);
+    --ok:#3fb950;--warn:#d29922;--bad:#f85149;
+    --shadow-sm:0 1px 2px rgba(0,0,0,.4);
+    --shadow-md:0 6px 24px rgba(0,0,0,.45);
+    --mono:ui-monospace,Consolas,"Cascadia Mono",monospace;
+  }
+  [data-theme="light"]{
+    color-scheme:light;
+    --bg:#f6f8fa;--panel:#ffffff;--panel2:#eef1f4;--line:#d5dbe1;--line2:#bfc7cf;
+    --fg:#1f2328;--dim:#59636e;--faint:#818b94;
+    --acc:#0969da;--acc-contrast:#ffffff;--acc-soft:rgba(9,105,218,.10);
+    --ok:#1a7f37;--warn:#9a6700;--bad:#cf222e;
+    --shadow-sm:0 1px 2px rgba(31,35,40,.08);
+    --shadow-md:0 8px 28px rgba(31,35,40,.14);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--fg);font:14.5px/1.6 -apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    transition:background-color .25s ease,color .25s ease}
+  :focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:4px}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:var(--line2);border-radius:5px;border:2px solid var(--bg)}
+  ::-webkit-scrollbar-track{background:transparent}
+
+  header{display:flex;align-items:center;gap:12px;padding:11px 20px;border-bottom:1px solid var(--line);
+    background:var(--panel);box-shadow:var(--shadow-sm);position:relative;z-index:2;transition:background-color .25s ease}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:650;font-size:1.02rem;letter-spacing:-.01em}
+  .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--acc);box-shadow:0 0 10px var(--acc)}
+  .brand small{color:var(--faint);font-weight:400;font-size:.78rem}
+  .previewtag{font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:var(--warn);
+    border:1px solid var(--warn);border-radius:10px;padding:2px 9px;font-weight:600}
+  #health{display:flex;align-items:center;gap:7px;font-size:.8rem;color:var(--dim);margin-left:8px}
+  #health .hdot{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok)}
+  .spacer{flex:1}
+  .ver{font-family:var(--mono);font-size:.74rem;color:var(--dim);border:1px solid var(--line);
+    border-radius:10px;padding:3px 10px;background:var(--bg);white-space:nowrap}
+  .ver a{color:var(--dim)} .ver a:hover{color:var(--acc)}
+  #theme{font:inherit;font-size:.78rem;background:var(--bg);border:1px solid var(--line);color:var(--dim);
+    border-radius:10px;padding:3px 10px;cursor:pointer;line-height:1.4}
+  #theme:hover{color:var(--acc);border-color:var(--acc)}
+
+  main{display:grid;grid-template-columns:300px 1fr;min-height:calc(100vh - 54px)}
+  .side{border-right:1px solid var(--line);padding:18px 16px 26px;
+    background:linear-gradient(180deg,var(--panel) 0,var(--bg) 160px)}
+  .side h2{font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin:22px 2px 8px;font-weight:600}
+  .side h2:first-child{margin-top:0}
+  .content{padding:24px 30px 60px;overflow:auto}
+  .content > *{max-width:72ch}
+  .content > .cards{max-width:none}
+  @media (max-width:860px){main{grid-template-columns:1fr}.side{border-right:none;border-bottom:1px solid var(--line)}.content{padding:18px}}
+
+  .side input,.side textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;
+    color:var(--fg);padding:8px 10px;margin:4px 0 8px;font:inherit}
+  .side input:focus,.side textarea:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-soft)}
+  .side textarea{resize:vertical;min-height:64px}
+  .side button,.btn{font:inherit;font-weight:550;background:#1c2530;border:1px solid var(--line2);border-radius:8px;
+    color:var(--fg);padding:8px 12px;cursor:pointer;transition:border-color .15s,background .15s}
+  [data-theme="light"] .side button,[data-theme="light"] .btn{background:var(--panel2)}
+  .side button:hover,.btn:hover{border-color:var(--acc)}
+  .side button.primary{background:var(--acc-soft);border-color:var(--acc);color:var(--acc);font-weight:600}
+  .side button.primary:hover{background:var(--acc);color:var(--acc-contrast)}
+  .btnrow{display:flex;gap:8px;margin-top:2px}
+  .btnrow button{flex:1}
+  label{font-size:.76rem;color:var(--dim)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+  .chip{font-size:.74rem;color:var(--dim);border:1px solid var(--line);border-radius:20px;padding:2px 10px;
+    cursor:pointer;background:var(--bg)}
+  .chip:hover{color:var(--acc);border-color:var(--acc);background:var(--acc-soft)}
+
+  #jobs{width:100%;border-collapse:collapse}
+  #jobs td{padding:7px 4px;border-bottom:1px solid var(--line);font-size:.82rem}
+  #jobs tr{cursor:pointer} #jobs tr:hover td{background:var(--acc-soft)}
+  #jobs .jlabel{display:block;max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #jobs .jmeta{color:var(--faint);font-size:.7rem;margin-top:1px}
+  .pill{display:inline-block;border-radius:10px;padding:1px 9px;font-size:.7rem;border:1px solid var(--line);font-family:var(--mono)}
+  .pill.ok{color:var(--ok);border-color:var(--ok)}
+  .pill.run{color:var(--acc);border-color:var(--acc)}
+  .pill.warn{color:var(--warn);border-color:var(--warn)}
+
+  .cards{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 20px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 15px;min-width:128px;box-shadow:var(--shadow-sm)}
+  .card .k{font-size:.66rem;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin-bottom:3px;font-weight:600}
+  .card .v{font-size:1.12rem;font-family:var(--mono)}
+  .card .v.small{font-size:.86rem}
+  .v.ok{color:var(--ok)} .v.bad{color:var(--bad)}
+  h3{font-size:.76rem;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin:26px 0 10px;font-weight:600}
+  table{width:100%;border-collapse:collapse;font-size:.86rem}
+  th{text-align:left;color:var(--faint);font-weight:600;font-size:.68rem;text-transform:uppercase;padding:6px 10px;border-bottom:1px solid var(--line)}
+  td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  td.num{font-family:var(--mono)}
+  a{color:var(--acc);text-decoration:none} a:hover{text-decoration:underline}
+  .muted{color:var(--dim)} .mono{font-family:var(--mono)}
+  .error{border:1px solid var(--bad);border-radius:10px;padding:11px 15px;color:var(--bad);margin:0 0 18px;background:color-mix(in srgb,var(--bad) 7%,transparent)}
+  .cite{color:var(--acc);font-size:.74rem;vertical-align:super;margin-left:2px}
+  pre{white-space:pre-wrap;font-family:var(--mono);font-size:.8rem;color:var(--fg);line-height:1.55}
+  details{margin-top:10px} summary{cursor:pointer;color:var(--dim);font-size:.8rem}
+  details pre{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px}
+
+  .barrow{display:grid;grid-template-columns:130px 1fr 40px;gap:10px;align-items:center;margin:6px 0;font-size:.84rem}
+  .barrow .btrack{background:var(--panel2);border-radius:5px;height:9px;overflow:hidden}
+  .barrow .bfill{height:100%;background:linear-gradient(90deg,var(--acc),color-mix(in srgb,var(--acc) 45%,#fff));border-radius:5px}
+  .barrow .bn{font-family:var(--mono);text-align:right;color:var(--dim)}
+
+  .pipe{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0 6px}
+  .pipe .step{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 12px;font-size:.78rem;box-shadow:var(--shadow-sm)}
+  .pipe .step b{display:block;font-size:.82rem;color:var(--acc);font-weight:600}
+  .pipe .arr{color:var(--faint)}
+  .homehint{color:var(--dim);font-size:.88rem;margin:10px 0 0}
+  .hero{font-size:1.35rem;font-weight:700;letter-spacing:-.02em;margin-bottom:4px}
+  .hero em{font-style:normal;color:var(--acc)}
+
+  .acct input{margin-bottom:6px}
+  .acct .who{font-size:.82rem;color:var(--dim);margin:2px 0 8px}
+  .hint{font-size:.72rem;color:var(--faint);margin:6px 0 0;line-height:1.5}
+  #who b{color:var(--acc);font-weight:600}
+
+  #toasts{position:fixed;right:18px;bottom:18px;display:flex;flex-direction:column;gap:8px;z-index:9}
+  .toast{background:var(--panel2);border:1px solid var(--line2);border-left:3px solid var(--ok);border-radius:8px;
+    padding:9px 14px;font-size:.82rem;box-shadow:var(--shadow-md);animation:slidein .18s ease-out;max-width:320px}
+  .toast.bad{border-left-color:var(--bad)}
+  @keyframes slidein{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><span class="dot"></span>market-intel <small>console</small></div>
+  <span class="previewtag">static preview</span>
+  <div id="health"><span class="hdot"></span><span>demo data - no backend</span></div>
+  <div class="spacer"></div>
+  <span class="ver"><a href="index.html">&larr; project site</a></span>
+  <span class="ver" id="who" hidden></span>
+  <button id="theme" title="Toggle light / dark">&#9788;</button>
+</header>
+<main>
+  <nav class="side">
+    <h2>Ask the corpus</h2>
+    <textarea id="q" placeholder="Try one of the examples below"></textarea>
+    <label>top_k</label>
+    <input id="k" type="number" value="5" min="1" max="20">
+    <button id="ask" class="primary">Ask</button>
+    <div class="chips" id="chips"></div>
+
+    <h2>Full report</h2>
+    <input id="topic" value="fees, payouts and platform switching">
+    <label>competitors (comma-separated)</label>
+    <input id="comps" value="shopify, woocommerce, bigcommerce">
+    <div class="btnrow">
+      <button id="report">Generate report</button>
+      <button id="refresh" title="Fetch new posts, re-chunk and re-embed">Refresh corpus</button>
+    </div>
+
+    <h2>Recent jobs</h2>
+    <table id="jobs"><tbody></tbody></table>
+
+    <h2>Account</h2>
+    <div class="acct" id="acct"></div>
+  </nav>
+  <section class="content" id="content"></section>
+</main>
+<div id="toasts"></div>
+<script>
+"use strict";
+/* Canned data from the live 2026-09-27 verification runs (execs #8/#9).
+   Every interaction is simulated locally; nothing leaves the page. */
+const REPORT_MD_URL = "https://raw.githubusercontent.com/Aabyyss/AI-Market-Intelligence-Product-Strategy-Agent/main/data/reports/market_report_2026-09-27_214925.md";
+
+const JOBS = [
+  { job_id: "46e54cf0ceec", kind: "report", status: "succeeded", source: "n8n", user: "n8n",
+    created_at: "2026-09-27T21:28:51Z", duration_seconds: 1233.4,
+    result: { brief: "fees, payouts and platform switching", evidence: 21,
+      per_competitor: { shopify: 8, woocommerce: 8, bigcommerce: 5 },
+      verdicts: { SUPPORTED: 5, PARTIAL: 2, UNSUPPORTED: 15 },
+      citation_audit: { used: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19], out_of_range: [], uncited_competitor: 0 },
+      provider: "ollama", model: "llama3.2",
+      queries: ['"shopify"', '"shopify" fees', '"shopify" payouts', '"woocommerce"', '"woocommerce" fees', '"bigcommerce"', '"bigcommerce" pricing', "shopify developer complaints", "woocommerce vs shopify migration"] },
+    markdown_url: REPORT_MD_URL },
+  { job_id: "96843cae2e60", kind: "refresh", status: "succeeded", source: "n8n", user: "n8n",
+    created_at: "2026-09-27T20:05:17Z", duration_seconds: 406.6,
+    result: { queries: 15, queries_planned: 15, query_failures: 0, fetched: 195, kept: 161, inserted: 0, posts_total: 169, chunks: 217 } },
+  { job_id: "d2fe885385fe", kind: "report", status: "succeeded", source: "n8n", user: "n8n",
+    created_at: "2026-09-27T12:45:15Z", duration_seconds: 1375.5,
+    result: { brief: "fees, payouts and platform switching", evidence: 22,
+      per_competitor: { shopify: 8, woocommerce: 8, bigcommerce: 6 },
+      verdicts: { SUPPORTED: 0, PARTIAL: 2, UNSUPPORTED: 20 },
+      citation_audit: { used: [1,2,3,4,5,6], out_of_range: [10], uncited_competitor: 1 },
+      provider: "ollama", model: "llama3.2", queries: [] } },
+];
+
+const ANSWERS = {
+  default: { answer: "Developers most often complain about platform fees and payout timing [1][2]. Several threads describe raising checkout costs pushing merchants to consider WooCommerce or BigCommerce [3], and the critic marked most sweeping claims as unsupported because the posts do not quantify the fees [4].", grounded: true, citations: [ {n:1, post_id:"46763133", title:"Shopify is raising prices again", url:"https://news.ycombinator.com/item?id=46763133"}, {n:2, post_id:"38251120", title:"Stripe and Shopify payout delays", url:"https://news.ycombinator.com/item?id=38251120"}, {n:3, post_id:"41163807", title:"Migrating from Shopify to WooCommerce", url:"https://news.ycombinator.com/item?id=41163807"}, {n:4, post_id:"39445512", title:"E-commerce platform fees compared", url:"https://news.ycombinator.com/item?id=39445512"} ], sources_considered: 5 },
+};
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>\"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));
+let me = null;
+let jobs = JSON.parse(JSON.stringify(JOBS));
+
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t;
+  $("theme").innerHTML = t === "light" ? "&#9789;" : "&#9788;";
+  try { localStorage.setItem("mi-preview-theme", t); } catch { /* ignore */ }
+}
+applyTheme((()=>{ try { return localStorage.getItem("mi-preview-theme"); } catch { return null; } })()
+  ?? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"));
+$("theme").onclick = () =>
+  applyTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light");
+
+function toast(msg, bad) {
+  const t = document.createElement("div");
+  t.className = "toast" + (bad ? " bad" : "");
+  t.textContent = msg;
+  $("toasts").appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+
+function rt(iso) {
+  const s = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (s < 0 || s > 86400 * 7) return new Date(iso).toLocaleDateString();
+  if (s < 60) return "just now";
+  if (s < 3600) return Math.floor(s / 60) + "m ago";
+  if (s < 86400) return Math.floor(s / 3600) + "h ago";
+  return Math.floor(s / 86400) + "d ago";
+}
+function fmtDur(s) {
+  s = Math.round(s ?? 0);
+  if (s < 60) return s + "s";
+  return Math.floor(s / 60) + "m " + (s % 60) + "s";
+}
+
+function renderHome() {
+  $("content").innerHTML = `
+    <div class="hero">Every claim <em>points at a post</em> you can open.</div>
+    <div class="cards">
+      <div class="card"><div class="k">posts collected</div><div class="v">169</div></div>
+      <div class="card"><div class="k">embedded chunks</div><div class="v">217</div></div>
+      <div class="card"><div class="k">embedding model</div><div class="v small">BAAI/bge-small-en-v1.5</div></div>
+      <div class="card"><div class="k">llm</div><div class="v small">ollama/llama3.2</div></div>
+    </div>
+    <h3>How a report is built</h3>
+    <div class="pipe">
+      <div class="step"><b>fetch</b>Hacker News</div><span class="arr">&rarr;</span>
+      <div class="step"><b>clean + store</b>SQLite</div><span class="arr">&rarr;</span>
+      <div class="step"><b>chunk + embed</b>bge-small</div><span class="arr">&rarr;</span>
+      <div class="step"><b>5-agent pipeline</b>local LLM</div><span class="arr">&rarr;</span>
+      <div class="step"><b>cited report</b>markdown</div><span class="arr">&rarr;</span>
+      <div class="step"><b>notify</b>n8n + Slack</div>
+    </div>
+    <p class="homehint">This page replays the live verification runs from 2026-09-27 (n8n executions
+    #8 and #9). Click a job on the left, ask the demo question, or toggle the theme &mdash; the real
+    console talks to a running API instead of canned data.</p>`;
+}
+
+function jobTr(j) {
+  const cls = j.status === "succeeded" ? "ok" : "bad";
+  const label = j.kind === "report" ? (j.result?.brief ?? "report") : "corpus refresh";
+  const src = j.source && j.source !== "api" ? ` <span class="pill run">${esc(j.source)}</span>` : "";
+  const tr = document.createElement("tr");
+  tr.onclick = () => showJob(j.job_id);
+  tr.innerHTML = `<td><span class="jlabel">${esc(label)} ${src}</span>
+    <span class="pill ${cls}">${esc(j.status)}</span>
+    <div class="jmeta">${esc(rt(j.created_at))} - ${esc(fmtDur(j.duration_seconds))} - @${esc(j.user)}</div></td>`;
+  return tr;
+}
+
+function refreshJobs() {
+  const tb = $("jobs").querySelector("tbody");
+  tb.innerHTML = "";
+  for (const j of jobs) tb.appendChild(jobTr(j));
+}
+
+function renderReport(r) {
+  const v = r.verdicts ?? {};
+  const audit = r.citation_audit ?? {};
+  const used = (audit.used ?? []).length;
+  const bad = (audit.out_of_range ?? []).length + (audit.uncited_competitor ?? 0);
+  const per = Object.entries(r.per_competitor ?? {});
+  const max = Math.max(1, ...per.map(([, n]) => Number(n) || 0));
+  const el = $("content");
+  el.innerHTML = `
+    <div class="cards">
+      <div class="card"><div class="k">brief</div><div class="v small" style="max-width:260px">${esc(r.brief)}</div></div>
+      <div class="card"><div class="k">evidence posts</div><div class="v">${esc(r.evidence)}</div></div>
+      <div class="card"><div class="k">verdicts</div><div class="v">${v.SUPPORTED ?? 0}&check; ${v.PARTIAL ?? 0}&tilde; ${v.UNSUPPORTED ?? 0}&times;</div></div>
+      <div class="card"><div class="k">citations resolved</div><div class="v ${bad ? "bad" : "ok"}">${used}${bad ? ` (${bad} bad)` : ""}</div></div>
+      <div class="card"><div class="k">model</div><div class="v small">${esc(r.provider ?? "?")}/${esc(r.model ?? "?")}</div></div>
+    </div>
+    ${bad ? `<div class="error">citation audit: ${bad} citation(s) flagged &mdash; the mechanical audit caught them</div>` : ""}
+    <h3>Per competitor</h3>` +
+    per.map(([c, n]) =>
+      `<div class="barrow"><span>${esc(c)}</span><span class="btrack"><span class="bfill" style="display:block;width:${Math.round(100 * (Number(n) || 0) / max)}%"></span></span><span class="bn">${esc(n)}</span></div>`).join("") +
+    `<h3>Report</h3><pre id="md">loading&hellip;</pre>`;
+  fetch(r.markdown_url ?? "")
+    .then(x => { if (!x.ok) throw new Error("no markdown"); return x.text(); })
+    .then(md => { const m = el.querySelector("#md"); if (m) m.textContent = md.slice(0, 4000) + (md.length > 4000 ? "\n\n[... preview truncated &mdash; full report in the repo ...]" : ""); })
+    .catch(() => { const m = el.querySelector("#md"); if (m) m.textContent = "(markdown unavailable in this preview)"; });
+}
+
+function showJob(jobId) {
+  const j = jobs.find(x => x.job_id === jobId);
+  if (!j) return;
+  if (j.kind === "report") renderReport(j.result);
+  else {
+    const r = j.result ?? {};
+    $("content").innerHTML = `<div class="cards">
+      <div class="card"><div class="k">queries run</div><div class="v">${esc(r.queries ?? "?")}${r.queries_planned != null ? "/" + esc(r.queries_planned) : ""}</div></div>
+      <div class="card"><div class="k">fetched</div><div class="v">${esc(r.fetched ?? "?")}</div></div>
+      <div class="card"><div class="k">new posts kept</div><div class="v">${esc(r.kept ?? "?")}</div></div>
+      <div class="card"><div class="k">corpus size</div><div class="v">${esc(r.posts_total ?? "?")}</div></div>
+      <div class="card"><div class="k">duration</div><div class="v">${esc(fmtDur(j.duration_seconds))}</div></div>
+    </div><p class="muted">The corpus is re-chunked and re-embedded automatically after a refresh.</p>`;
+  }
+}
+
+function doAsk() {
+  const q = $("q").value.trim();
+  if (!q) { toast("Type a question first", true); return; }
+  const a = ANSWERS.default;
+  const cited = a.answer.replace(/\[(\d+)\]/g, (m, n) => `<sup class="cite" title="source ${esc(n)}">[${n}]</sup>`);
+  $("content").innerHTML = `
+    <div class="cards">
+      <div class="card"><div class="k">grounded in corpus</div><div class="v ok">${a.grounded ? "yes" : "no"}</div></div>
+      <div class="card"><div class="k">citations</div><div class="v">${a.citations.length}</div></div>
+      <div class="card"><div class="k">sources considered</div><div class="v">${a.sources_considered}</div></div>
+    </div>
+    <h3>Answer</h3><p>${cited}</p>
+    <h3>Cited sources</h3>
+    <table><tr><th>#</th><th>post</th><th>title</th></tr>` +
+    a.citations.map(c =>
+      `<tr><td class="num">[${esc(c.n)}]</td><td class="mono"><a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.post_id)}</a></td>
+       <td>${esc(c.title ?? "")}</td></tr>`).join("") +
+    `</table><details><summary>raw JSON</summary><pre>${esc(JSON.stringify(a, null, 2))}</pre></details>`;
+}
+
+function simulateJob(kind) {
+  const label = kind === "report" ? "Report" : "Corpus refresh";
+  toast(label + " started (simulated)");
+  const id = "demo" + Math.random().toString(16).slice(2, 10);
+  const j = { job_id: id, kind, status: "succeeded",
+    source: "api", user: me ? me.username : "anonymous",
+    created_at: new Date().toISOString(),
+    duration_seconds: kind === "report" ? 1233.4 : 406.6,
+    result: kind === "report"
+      ? { brief: $("topic").value.trim() || "demo brief", evidence: 21,
+          per_competitor: { shopify: 8, woocommerce: 8, bigcommerce: 5 },
+          verdicts: { SUPPORTED: 5, PARTIAL: 2, UNSUPPORTED: 15 },
+          citation_audit: { used: [1,2,3], out_of_range: [], uncited_competitor: 0 },
+          provider: "ollama", model: "llama3.2", queries: [],
+          markdown_url: REPORT_MD_URL }
+      : { queries: 15, queries_planned: 15, query_failures: 0, fetched: 195, kept: 161, inserted: 0, posts_total: 169, chunks: 217 } };
+  jobs.unshift(j);
+  refreshJobs();
+  setTimeout(() => { toast(label + " finished"); showJob(id); }, 1800);
+  $("content").innerHTML = `<p class="muted">started ${esc(kind)} job <span class="mono">${esc(id)}</span>&hellip; (simulated)</p>`;
+}
+
+function renderAuth() {
+  const el = $("acct"), who = $("who");
+  if (me) {
+    who.hidden = false; who.innerHTML = "@<b>" + esc(me.username) + "</b>";
+    el.innerHTML = `<div class="who">signed in as <b>${esc(me.username)}</b> <span class="pill run">${esc(me.role)}</span></div>
+      <button id="logout">Sign out</button>`;
+    $("logout").onclick = () => { me = null; renderAuth(); toast("Signed out"); };
+    return;
+  }
+  who.hidden = true;
+  el.innerHTML = `
+    <input id="u" placeholder="username (try demo)">
+    <input id="p" type="password" placeholder="password (try demodemo123)">
+    <div class="btnrow"><button id="login" class="primary">Sign in</button></div>
+    <p class="hint">Simulated multi-user auth: any username + an 8+ char password works here.
+    On the real service, accounts live in data/auth.db (PBKDF2-hashed, 7-day bearer sessions),
+    the first account becomes admin, and jobs are scoped per user.</p>`;
+  $("login").onclick = () => {
+    const u = $("u").value.trim(), p = $("p").value;
+    if (u.length < 3 || p.length < 8) { toast("3+ char username, 8+ char password", true); return; }
+    me = { username: u, role: "admin" };
+    renderAuth(); toast("Welcome, " + u + " (simulated)");
+  };
+}
+
+$("ask").onclick = doAsk;
+$("q").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); doAsk(); } });
+$("report").onclick = () => simulateJob("report");
+$("refresh").onclick = () => simulateJob("refresh");
+
+const EXAMPLES = [
+  "What do developers say about platform fees?",
+  "Which platform has the worst payout delays?",
+  "What integrations are people asking for?",
+];
+for (const ex of EXAMPLES) {
+  const b = document.createElement("span");
+  b.className = "chip";
+  b.textContent = ex;
+  b.onclick = () => { $("q").value = ex; doAsk(); };
+  $("chips").appendChild(b);
+}
+
+renderHome();
+refreshJobs();
+renderAuth();
+</script>
+</body>
+</html>

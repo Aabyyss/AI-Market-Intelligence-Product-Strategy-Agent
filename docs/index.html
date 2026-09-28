@@ -41,11 +41,16 @@
   <h1>AI Market Intelligence &amp; Product Strategy Agent</h1>
   <p class="sub">A Python pipeline that watches Hacker News, builds a RAG knowledge base over what it finds, and runs a five-agent LLM team to produce an evidence-cited market report — scheduled and orchestrated by n8n, verified by CI on every push.</p>
   <div class="badges">
-    <span class="badge ok">CI green — 96 tests + gated retrieval eval</span>
+    <span class="badge ok">CI green — 115 tests + gated retrieval eval</span>
     <span class="badge">Python · FastAPI · FastEmbed · sqlite-vec · n8n · Docker</span>
+    <span class="badge">Multi-user · self-learning queries</span>
   </div>
 
+  <p style="margin:14px 0 0"><a class="badge ok" style="text-decoration:none" href="preview.html"><b>▶ Try the console — interactive preview (no install)</b></a></p>
+
   <video class="video" controls preload="metadata" poster="demo-poster.png" src="demo.mp4"></video>
+  <video class="video" controls preload="metadata" poster="demo-poster-light.png" src="demo-light.mp4"></video>
+  <p style="color:var(--dim);font-size:.85rem">Two themes of the same 88-second walkthrough: dark (default) and light — the console supports both.</p>
 
   <h2>Architecture</h2>
   <div class="panel"><div class="flow"><b>Hacker News</b> ──▶ fetch (retries transient failures)
@@ -102,6 +107,7 @@ python run_report.py "ai agents"   # full multi-agent report
 uvicorn market_intel.api:app       # the service (or: docker compose up)</div></div>
 
   <div class="links">
+    <a href="preview.html">Interactive console preview</a>
     <a href="https://github.com/Aabyyss/AI-Market-Intelligence-Product-Strategy-Agent">GitHub repo ↗</a>
     <a href="https://github.com/Aabyyss/AI-Market-Intelligence-Product-Strategy-Agent/blob/main/ARCHITECTURE.md">Architecture ↗</a>
     <a href="https://github.com/Aabyyss/AI-Market-Intelligence-Product-Strategy-Agent/blob/main/PROJECT.md">Project &amp; roadmap ↗</a>
