@@ -3,111 +3,148 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
 <title>market-intel console</title>
 <style>
+  /* Two palettes over one set of tokens: the default is dark, [data-theme]
+     overrides it, and the boot script honors a saved choice or the OS. */
   :root{
+    color-scheme:dark;
     --bg:#0b0f14;--panel:#11161d;--panel2:#161d26;--line:#26303c;--line2:#324050;
-    --fg:#e6edf3;--dim:#8b98a5;--faint:#5c6873;
-    --acc:#4c9ffe;--acc-soft:rgba(76,159,254,.12);
+    --fg:#e6edf3;--dim:#98a4b0;--faint:#5c6873;
+    --acc:#4c9ffe;--acc-contrast:#ffffff;--acc-soft:rgba(76,159,254,.12);
     --ok:#3fb950;--warn:#d29922;--bad:#f85149;
+    --shadow-sm:0 1px 2px rgba(0,0,0,.4);
+    --shadow-md:0 6px 24px rgba(0,0,0,.45);
     --mono:ui-monospace,Consolas,"Cascadia Mono",monospace;
+  }
+  [data-theme="light"]{
+    color-scheme:light;
+    --bg:#f6f8fa;--panel:#ffffff;--panel2:#eef1f4;--line:#d5dbe1;--line2:#bfc7cf;
+    --fg:#1f2328;--dim:#59636e;--faint:#818b94;
+    --acc:#0969da;--acc-contrast:#ffffff;--acc-soft:rgba(9,105,218,.10);
+    --ok:#1a7f37;--warn:#9a6700;--bad:#cf222e;
+    --shadow-sm:0 1px 2px rgba(31,35,40,.08);
+    --shadow-md:0 8px 28px rgba(31,35,40,.14);
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
-  body{background:var(--bg);color:var(--fg);font:14.5px/1.55 -apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+  body{background:var(--bg);color:var(--fg);font:14.5px/1.6 -apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    transition:background-color .25s ease,color .25s ease}
+  :focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:4px}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:var(--line2);border-radius:5px;border:2px solid var(--bg)}
+  ::-webkit-scrollbar-track{background:transparent}
 
   /* ---------- header ---------- */
-  header{display:flex;align-items:center;gap:12px;padding:10px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
-  .brand{display:flex;align-items:center;gap:9px;font-weight:650;font-size:1.02rem;letter-spacing:.01em}
+  header{display:flex;align-items:center;gap:12px;padding:11px 20px;border-bottom:1px solid var(--line);
+    background:var(--panel);box-shadow:var(--shadow-sm);position:relative;z-index:2;
+    transition:background-color .25s ease}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:650;font-size:1.02rem;letter-spacing:-.01em}
   .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--acc);box-shadow:0 0 10px var(--acc)}
-  .brand small{color:var(--faint);font-weight:400;font-size:.78rem}
+  .brand small{color:var(--faint);font-weight:400;font-size:.78rem;letter-spacing:0}
   #health{display:flex;align-items:center;gap:7px;font-size:.8rem;color:var(--dim);margin-left:14px;min-width:0}
   #health .hdot{width:8px;height:8px;border-radius:50%;background:var(--bad);flex:none;transition:background .3s}
-  #health.online .hdot{background:var(--ok);box-shadow:0 0 8px rgba(63,185,80,.7)}
-  #health .hmeta{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #health.online .hdot{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+  #health .hmeta{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    font-variant-numeric:tabular-nums}
   .spacer{flex:1}
-  .ver{font-family:var(--mono);font-size:.74rem;color:var(--dim);border:1px solid var(--line);border-radius:10px;padding:2px 9px;background:var(--bg)}
+  .ver{font-family:var(--mono);font-size:.74rem;color:var(--dim);border:1px solid var(--line);
+    border-radius:10px;padding:3px 10px;background:var(--bg);white-space:nowrap}
   .ver a{color:var(--dim)} .ver a:hover{color:var(--acc)}
+  #theme{font:inherit;font-size:.78rem;background:var(--bg);border:1px solid var(--line);color:var(--dim);
+    border-radius:10px;padding:3px 10px;cursor:pointer;line-height:1.4;transition:all .15s}
+  #theme:hover{color:var(--acc);border-color:var(--acc)}
 
   /* ---------- layout ---------- */
-  main{display:grid;grid-template-columns:300px 1fr;min-height:calc(100vh - 53px)}
-  .side{border-right:1px solid var(--line);padding:18px 16px 26px;background:linear-gradient(180deg,var(--panel) 0,var(--bg) 140px)}
-  .side h2{font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin:22px 2px 8px}
+  main{display:grid;grid-template-columns:300px 1fr;min-height:calc(100vh - 54px)}
+  .side{border-right:1px solid var(--line);padding:18px 16px 26px;
+    background:linear-gradient(180deg,var(--panel) 0,var(--bg) 160px)}
+  .side h2{font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin:22px 2px 8px;font-weight:600}
   .side h2:first-child{margin-top:0}
   .content{padding:24px 30px 60px;overflow:auto}
+  .content > *{max-width:72ch}
+  .content > .cards{max-width:none}
   @media (max-width:860px){main{grid-template-columns:1fr}.side{border-right:none;border-bottom:1px solid var(--line)}.content{padding:18px}}
 
   /* ---------- forms ---------- */
-  .side input,.side textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:7px;color:var(--fg);padding:8px 10px;margin:4px 0 8px;font:inherit;transition:border-color .15s}
-  .side input:focus,.side textarea:focus{outline:none;border-color:var(--acc)}
+  .side input,.side textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;
+    color:var(--fg);padding:8px 10px;margin:4px 0 8px;font:inherit;transition:border-color .15s,background-color .25s}
+  .side input:focus,.side textarea:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-soft)}
   .side textarea{resize:vertical;min-height:64px}
-  .side button,.btn{font:inherit;font-weight:550;background:#1c2530;border:1px solid var(--line2);border-radius:7px;color:var(--fg);padding:8px 12px;cursor:pointer;transition:border-color .15s,background .15s}
-  .side button:hover,.btn:hover{border-color:var(--acc);background:#202b39}
+  .side button,.btn{font:inherit;font-weight:550;background:#1c2530;border:1px solid var(--line2);border-radius:8px;
+    color:var(--fg);padding:8px 12px;cursor:pointer;
+    transition:border-color .15s,background .15s,transform .06s}
+  [data-theme="light"] .side button,[data-theme="light"] .btn{background:var(--panel2)}
+  .side button:hover,.btn:hover{border-color:var(--acc)}
+  .side button:active,.btn:active{transform:translateY(1px)}
   .side button:disabled{opacity:.45;cursor:default}
-  .side button.primary{background:var(--acc-soft);border-color:rgba(76,159,254,.45);color:var(--acc)}
-  .side button.primary:hover{background:rgba(76,159,254,.2)}
+  .side button.primary{background:var(--acc-soft);border-color:var(--acc);color:var(--acc);font-weight:600}
+  .side button.primary:hover{background:var(--acc);color:var(--acc-contrast)}
   .btnrow{display:flex;gap:8px;margin-top:2px}
   .btnrow button{flex:1}
   label{font-size:.76rem;color:var(--dim)}
   .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
-  .chip{font-size:.74rem;color:var(--dim);border:1px solid var(--line);border-radius:20px;padding:2px 10px;cursor:pointer;background:var(--bg);transition:all .15s}
-  .chip:hover{color:var(--acc);border-color:var(--acc)}
+  .chip{font-size:.74rem;color:var(--dim);border:1px solid var(--line);border-radius:20px;padding:2px 10px;
+    cursor:pointer;background:var(--bg);transition:all .15s}
+  .chip:hover{color:var(--acc);border-color:var(--acc);background:var(--acc-soft)}
 
   /* ---------- jobs list ---------- */
-  #jobs{width:100%;border-collapse:collapse}
-  #jobs td{padding:6px 4px;border-bottom:1px solid var(--line);font-size:.82rem}
-  #jobs tr{cursor:pointer} #jobs tr:hover td{background:rgba(76,159,254,.05)}
+  #jobs{width:100%;border-collapse:collapse;max-width:none}
+  #jobs td{padding:7px 4px;border-bottom:1px solid var(--line);font-size:.82rem}
+  #jobs tr{cursor:pointer} #jobs tr:hover td{background:var(--acc-soft)}
   #jobs .jlabel{display:block;max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  #jobs .jmeta{color:var(--faint);font-size:.7rem;margin-top:1px}
+  #jobs .jmeta{color:var(--faint);font-size:.7rem;margin-top:1px;font-variant-numeric:tabular-nums}
   .pill{display:inline-block;border-radius:10px;padding:1px 9px;font-size:.7rem;border:1px solid var(--line);font-family:var(--mono)}
-  .pill.ok{color:var(--ok);border-color:rgba(63,185,80,.6)}
-  .pill.warn{color:var(--warn);border-color:rgba(210,153,34,.6)}
-  .pill.bad{color:var(--bad);border-color:rgba(248,81,73,.6)}
-  .pill.run{color:var(--acc);border-color:rgba(76,159,254,.6)}
-  .pill.run.live{position:relative}
+  .pill.ok{color:var(--ok);border-color:var(--ok)}
+  .pill.warn{color:var(--warn);border-color:var(--warn)}
+  .pill.bad{color:var(--bad);border-color:var(--bad)}
+  .pill.run{color:var(--acc);border-color:var(--acc)}
   .pill.run.live::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--acc);margin-right:5px;animation:pulse 1.2s ease-in-out infinite}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
 
   /* ---------- cards & content ---------- */
   .cards{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 20px}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:11px 15px;min-width:128px}
-  .card .k{font-size:.66rem;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin-bottom:2px}
-  .card .v{font-size:1.12rem;font-family:var(--mono)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 15px;min-width:128px;
+    box-shadow:var(--shadow-sm);transition:background-color .25s ease}
+  .card .k{font-size:.66rem;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin-bottom:3px;font-weight:600}
+  .card .v{font-size:1.12rem;font-family:var(--mono);font-variant-numeric:tabular-nums}
   .card .v.small{font-size:.86rem}
   .v.ok{color:var(--ok)} .v.bad{color:var(--bad)}
-  h3{font-size:.76rem;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin:26px 0 10px}
+  h3{font-size:.76rem;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin:26px 0 10px;font-weight:600}
   table{width:100%;border-collapse:collapse;font-size:.86rem}
   th{text-align:left;color:var(--faint);font-weight:600;font-size:.68rem;text-transform:uppercase;padding:6px 10px;border-bottom:1px solid var(--line)}
   td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
-  td.num{font-family:var(--mono)}
+  td.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
   a{color:var(--acc);text-decoration:none} a:hover{text-decoration:underline}
   .muted{color:var(--dim)} .mono{font-family:var(--mono)}
   #empty{color:var(--faint);padding:60px 0;text-align:center}
-  .error{border:1px solid rgba(248,81,73,.55);border-radius:9px;padding:11px 15px;color:var(--bad);margin:0 0 18px;background:rgba(248,81,73,.06)}
+  .error{border:1px solid var(--bad);border-radius:10px;padding:11px 15px;color:var(--bad);margin:0 0 18px;background:color-mix(in srgb,var(--bad) 7%,transparent)}
   .cite{color:var(--acc);font-size:.74rem;vertical-align:super;margin-left:2px;cursor:help}
-  .claim{margin:8px 0;padding:8px 12px;border-left:3px solid var(--line);background:var(--panel);border-radius:0 7px 7px 0}
-  .claim.supported{border-left-color:var(--ok)} .claim.partial{border-left-color:var(--warn)} .claim.unsupported{border-left-color:var(--bad)}
-  .claim .v{font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;margin-left:8px;font-family:var(--mono)}
-  .claim .v.supported{color:var(--ok)} .claim .v.partial{color:var(--warn)} .claim .v.unsupported{color:var(--bad)}
+  pre{white-space:pre-wrap;font-family:var(--mono);font-size:.8rem;color:var(--fg);line-height:1.55}
   details{margin-top:10px} summary{cursor:pointer;color:var(--dim);font-size:.8rem}
-  pre{white-space:pre-wrap;font-family:var(--mono);font-size:.8rem;color:var(--fg);line-height:1.5}
+  details pre{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px}
 
-  /* bars for per-competitor evidence */
+  /* per-competitor evidence bars */
   .barrow{display:grid;grid-template-columns:130px 1fr 40px;gap:10px;align-items:center;margin:6px 0;font-size:.84rem}
   .barrow .btrack{background:var(--panel2);border-radius:5px;height:9px;overflow:hidden}
-  .barrow .bfill{height:100%;background:linear-gradient(90deg,var(--acc),#7cc0ff);border-radius:5px;transition:width .4s}
-  .barrow .bn{font-family:var(--mono);text-align:right;color:var(--dim)}
+  .barrow .bfill{height:100%;background:linear-gradient(90deg,var(--acc),color-mix(in srgb,var(--acc) 45%,#fff));
+    border-radius:5px;transition:width .4s}
+  .barrow .bn{font-family:var(--mono);text-align:right;color:var(--dim);font-variant-numeric:tabular-nums}
 
   /* home pipeline */
-  .pipe{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0 6px}
-  .pipe .step{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 12px;font-size:.78rem}
+  .pipe{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0 6px;max-width:none}
+  .pipe .step{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 12px;font-size:.78rem;box-shadow:var(--shadow-sm)}
   .pipe .step b{display:block;font-size:.82rem;color:var(--acc);font-weight:600}
   .pipe .arr{color:var(--faint)}
-  .homehint{color:var(--dim);font-size:.88rem;max-width:640px;margin:10px 0 0}
+  .homehint{color:var(--dim);font-size:.88rem;margin:10px 0 0}
+  .hero{font-size:1.35rem;font-weight:700;letter-spacing:-.02em;margin-bottom:4px}
+  .hero em{font-style:normal;color:var(--acc)}
 
   /* toast */
   #toasts{position:fixed;right:18px;bottom:18px;display:flex;flex-direction:column;gap:8px;z-index:9}
-  .toast{background:var(--panel2);border:1px solid var(--line2);border-left:3px solid var(--ok);border-radius:8px;padding:9px 14px;font-size:.82rem;box-shadow:0 6px 24px rgba(0,0,0,.45);animation:slidein .18s ease-out}
+  .toast{background:var(--panel2);border:1px solid var(--line2);border-left:3px solid var(--ok);border-radius:8px;
+    padding:9px 14px;font-size:.82rem;box-shadow:var(--shadow-md);animation:slidein .18s ease-out;max-width:320px}
   .toast.bad{border-left-color:var(--bad)}
   @keyframes slidein{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
 </style>
@@ -117,13 +154,14 @@
   <div class="brand"><span class="dot"></span>market-intel <small>console</small></div>
   <div id="health"><span class="hdot"></span><span class="hmeta">connecting...</span></div>
   <div class="spacer"></div>
-  <span class="ver"><a href="/docs" target="_blank" title="OpenAPI docs">API docs</a></span>
+  <span class="ver"><a href="/docs" target="_blank" rel="noopener" title="OpenAPI docs">API docs</a></span>
   <span class="ver" id="ver"></span>
+  <button id="theme" title="Toggle light / dark (shift+T)" aria-label="Toggle color theme">&#9788;</button>
 </header>
 <main>
   <nav class="side">
     <h2>Ask the corpus</h2>
-    <textarea id="q" placeholder="e.g. what do developers say about platform fees?"></textarea>
+    <textarea id="q" placeholder="e.g. what do developers say about platform fees?" title="Ctrl/ Cmd+K to focus"></textarea>
     <label>top_k</label>
     <input id="k" type="number" value="5" min="1" max="20">
     <button id="ask" class="primary">Ask</button>
@@ -150,6 +188,23 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>\"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));
 const pollers = new Map();
 let currentJob = null;
+
+/* ---------- theme: saved choice wins, then the OS preference ---------- */
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t;
+  $("theme").innerHTML = t === "light" ? "&#9789;" : "&#9788;";
+  try { localStorage.setItem("mi-theme", t); } catch { /* private mode */ }
+}
+let savedTheme = null;
+try { savedTheme = localStorage.getItem("mi-theme"); } catch { /* private mode */ }
+applyTheme(savedTheme ?? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"));
+$("theme").onclick = () =>
+  applyTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light");
+document.addEventListener("keydown", e => {
+  if (e.shiftKey && (e.key === "T" || e.key === "t") && !/input|textarea/i.test(document.activeElement.tagName))
+    $("theme").onclick();
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); $("q").focus(); }
+});
 
 function toast(msg, bad) {
   const t = document.createElement("div");
@@ -200,6 +255,7 @@ async function refreshHealth() {
 function renderHome(h) {
   h = h || {};
   $("content").innerHTML = `
+    <div class="hero">Every claim <em>points at a post</em> you can open.</div>
     <div class="cards">
       <div class="card"><div class="k">posts collected</div><div class="v">${esc(h.posts ?? "-")}</div></div>
       <div class="card"><div class="k">embedded chunks</div><div class="v">${esc(h.chunks ?? "-")}</div></div>
@@ -208,16 +264,17 @@ function renderHome(h) {
     </div>
     <h3>How a report is built</h3>
     <div class="pipe">
-      <div class="step"><b>fetch</b>Hacker News</div><span class="arr">-></span>
-      <div class="step"><b>clean + store</b>SQLite</div><span class="arr">-></span>
-      <div class="step"><b>chunk + embed</b>bge-small</div><span class="arr">-></span>
-      <div class="step"><b>5-agent pipeline</b>local LLM</div><span class="arr">-></span>
-      <div class="step"><b>cited report</b>markdown</div><span class="arr">-></span>
+      <div class="step"><b>fetch</b>Hacker News</div><span class="arr">&rarr;</span>
+      <div class="step"><b>clean + store</b>SQLite</div><span class="arr">&rarr;</span>
+      <div class="step"><b>chunk + embed</b>bge-small</div><span class="arr">&rarr;</span>
+      <div class="step"><b>5-agent pipeline</b>local LLM</div><span class="arr">&rarr;</span>
+      <div class="step"><b>cited report</b>markdown</div><span class="arr">&rarr;</span>
       <div class="step"><b>notify</b>n8n + Slack</div>
     </div>
-    <p class="homehint">Every claim in a report is retrieved from the corpus first and cited back to a
-    real post; a citation audit rejects anything the evidence does not support. Ask a question on the
-    left for a quick grounded answer, or generate a full competitor report as a background job.</p>`;
+    <p class="homehint">Retrieval happens first, generation second, and code audits every citation
+    afterwards &mdash; anything the evidence does not support is flagged, never shipped silently.
+    Ask a question on the left for a quick grounded answer, or generate a full competitor
+    report as a background job. <span class="mono" style="font-size:.78rem">Ctrl/Cmd+K</span> focuses the ask box.</p>`;
 }
 
 function jobRow(j) {
@@ -246,9 +303,7 @@ async function refreshJobs() {
     const tb = $("jobs").querySelector("tbody");
     tb.innerHTML = "";
     if (!jobs.length) { tb.innerHTML = '<tr><td class="muted">none yet</td></tr>'; return; }
-    for (const j of jobs) {
-      tb.appendChild(jobTr(j));
-    }
+    for (const j of jobs) tb.appendChild(jobTr(j));
     for (const j of jobs) {
       const active = j.status === "queued" || j.status === "running";
       if (active && !pollers.has(j.job_id)) {
@@ -269,11 +324,6 @@ async function refreshJobs() {
   } catch { /* side nav is best-effort */ }
 }
 
-function verdictPill(v) {
-  const cls = v === "supported" ? "ok" : v === "partial" ? "warn" : "bad";
-  return `<span class="v ${esc(v)}">${esc(v)}</span>`;
-}
-
 function renderReport(r) {
   const v = r.verdicts ?? {};
   const audit = r.citation_audit ?? {};
@@ -286,15 +336,15 @@ function renderReport(r) {
     <div class="cards">
       <div class="card"><div class="k">brief</div><div class="v small" style="max-width:260px">${esc(r.brief)}</div></div>
       <div class="card"><div class="k">evidence posts</div><div class="v">${esc(r.evidence)}</div></div>
-      <div class="card"><div class="k">verdicts</div><div class="v">${v.SUPPORTED ?? 0}✓ ${v.PARTIAL ?? 0}~ ${v.UNSUPPORTED ?? 0}✗</div></div>
+      <div class="card"><div class="k">verdicts</div><div class="v">${v.SUPPORTED ?? 0}&check; ${v.PARTIAL ?? 0}&tilde; ${v.UNSUPPORTED ?? 0}&times;</div></div>
       <div class="card"><div class="k">citations resolved</div><div class="v ${bad ? "bad" : "ok"}">${used}${bad ? ` (${bad} bad)` : ""}</div></div>
       <div class="card"><div class="k">model</div><div class="v small">${esc(r.provider ?? "?")}/${esc(r.model ?? "?")}</div></div>
     </div>
-    ${bad ? `<div class="error">citation audit: ${bad} citation(s) point at evidence that was not retrieved — see the audit block in the report</div>` : ""}
+    ${bad ? `<div class="error">citation audit: ${bad} citation(s) point at evidence that was not retrieved &mdash; see the audit block in the report</div>` : ""}
     <h3>Per competitor</h3>` +
     per.map(([c, n]) =>
       `<div class="barrow"><span>${esc(c)}</span><span class="btrack"><span class="bfill" style="display:block;width:${Math.round(100 * (Number(n) || 0) / max)}%"></span></span><span class="bn">${esc(n)}</span></div>`).join("") +
-    `<h3>Report</h3><pre id="md">loading…</pre>`;
+    `<h3>Report</h3><pre id="md">loading&hellip;</pre>`;
   fetch(r.markdown_url ?? "")
     .then(x => x.text())
     .then(md => { const m = el.querySelector("#md"); if (m) m.textContent = md; })
@@ -307,7 +357,7 @@ async function showJob(jobId) {
     const j = await api("/jobs/" + jobId);
     const el = $("content");
     if (j.status === "queued" || j.status === "running") {
-      el.innerHTML = `<p class="muted">job <span class="mono">${esc(jobId)}</span> is ${esc(j.status)}…
+      el.innerHTML = `<p class="muted">job <span class="mono">${esc(jobId)}</span> is ${esc(j.status)}&hellip;
         <span class="pill run live">polling every 3s</span></p>`;
       return;
     }
@@ -332,7 +382,7 @@ async function showJob(jobId) {
 async function doAsk() {
   const q = $("q").value.trim();
   if (!q) return;
-  $("content").innerHTML = `<p class="muted">retrieving evidence and answering…</p>`;
+  $("content").innerHTML = `<p class="muted">retrieving evidence and answering&hellip;</p>`;
   try {
     const a = await api("/ask", {
       method: "POST", headers: {"Content-Type": "application/json"},
@@ -363,7 +413,7 @@ async function startJob(path, body, label) {
       body: JSON.stringify(body),
     });
     toast("Started " + (label ?? j.kind) + " job " + j.job_id.slice(0, 8));
-    $("content").innerHTML = `<p class="muted">started ${esc(j.kind)} job <span class="mono">${esc(j.job_id)}</span>…</p>`;
+    $("content").innerHTML = `<p class="muted">started ${esc(j.kind)} job <span class="mono">${esc(j.job_id)}</span>&hellip;</p>`;
     refreshJobs();
     setTimeout(() => showJob(j.job_id), 1200);
   } catch (e) { $("content").innerHTML = `<div class="error">${esc(e.message)}</div>`; }
