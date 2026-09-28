@@ -60,6 +60,9 @@ def client(corpus_db, tmp_path, monkeypatch):
     # that happens to have Ollama up. No LLM is ever reached either way:
     # the tests that get that far stub answer_question / build_report.
     monkeypatch.setattr(api, "resolve_provider", lambda: "ollama")
+    # Job history is in-memory, so it must not leak between tests: every
+    # test starts from an empty registry (the autouse network guard makes
+    # this safe — an unstubbed job body now fails loudly anyway).
     with api._JOBS_LOCK:
         api._JOBS.clear()
     with TestClient(api.app) as test_client:

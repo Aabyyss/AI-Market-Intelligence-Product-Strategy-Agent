@@ -61,6 +61,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field, field_validator
 
@@ -71,6 +72,7 @@ from market_intel.clean import clean_posts
 from market_intel.embed import get_embedder
 from market_intel.fetch import fetch_all, planned_queries
 from market_intel.llm import LLMError, model_for, resolve_provider
+from market_intel import auth as auth_store
 from market_intel import learning
 from market_intel.logging_config import (
     new_request_id,
@@ -231,6 +233,10 @@ class JobOut(BaseModel):
         "api",
         description="who started it: api (direct client) or n8n (scheduled flow)",
     )
+    user: str = Field(
+        "anonymous",
+        description="account that started it (anonymous in open mode, n8n for the service token)",
+    )
     created_at: str
     started_at: str | None = None
     finished_at: str | None = None
@@ -346,7 +352,8 @@ def root() -> dict:
         "version": __version__,
         "docs": "/docs",
         "endpoints": ["/health", "/search", "/ask", "/reports",
-                      "/pipeline/refresh", "/jobs", "/eval"],
+                      "/pipeline/refresh", "/jobs", "/eval", "/learning",
+                      "/auth/register", "/auth/login", "/auth/me", "/console"],
     }
 
 
@@ -438,6 +445,122 @@ def ask(req: AskRequest, conn=Depends(get_conn)) -> AskResponse:
     )
 
 
+# --- authentication -----------------------------------------------------
+
+
+class RegisterRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=32,
+                          description="letters, digits, underscores")
+    password: str = Field(min_length=8, max_length=128)
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class TokenOut(BaseModel):
+    token: str
+    username: str
+    role: str | None = None
+    expires_at: str | None = None
+
+
+_bearer = HTTPBearer(auto_error=False)
+
+
+def current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+) -> dict | None:
+    """Resolve the caller from a bearer token.
+
+    Open mode (nobody has registered yet) returns None and every
+    endpoint behaves exactly as before - local, zero-config, and the
+    scheduled n8n flows keep working. The static service token
+    (MARKET_INTEL_SERVICE_TOKEN) authenticates as the ``n8n`` service
+    user at any time.
+    """
+    if credentials is None:
+        return None
+    try:
+        return auth_store.resolve_token(credentials.credentials)
+    except Exception:  # noqa: BLE001 - auth must never 500 a request
+        return None
+
+
+def require_user(user: dict | None = Depends(current_user)) -> dict:
+    """Gate for protected endpoints once the service has any account."""
+    if auth_store.auth_mode():
+        if user is None:
+            raise HTTPException(
+                401,
+                detail="authentication required - register at /auth/register, "
+                       "then send Authorization: Bearer <token>",
+            )
+        return user
+    return {"username": "anonymous", "role": "open-mode"}
+
+
+@app.post("/auth/register", response_model=TokenOut, status_code=201)
+def register(req: RegisterRequest) -> TokenOut:
+    """Create an account and sign in.
+
+    The service is open until the first user exists; that first account
+    becomes the admin and the service switches to authenticated mode
+    immediately (protected endpoints start demanding tokens).
+    """
+    try:
+        user = auth_store.create_user(req.username, req.password)
+    except ValueError as exc:
+        raise HTTPException(422, detail=str(exc)) from exc
+    except sqlite3.IntegrityError as exc:
+        raise HTTPException(409, detail="username already taken") from exc
+    session = auth_store.create_session(user["username"])
+    log.info("user %s registered (%s)", user["username"], user["role"])
+    return TokenOut(**session, role=user["role"])
+
+
+@app.post("/auth/login", response_model=TokenOut)
+def login(req: LoginRequest) -> TokenOut:
+    """Exchange credentials for a bearer token (7-day session)."""
+    try:
+        auth_store.sweep_sessions()
+    except Exception:  # noqa: BLE001 - housekeeping must never block login
+        pass
+    user = auth_store.authenticate(req.username, req.password)
+    if user is None:
+        # One message for unknown user and wrong password alike.
+        raise HTTPException(401, detail="invalid username or password")
+    session = auth_store.create_session(user["username"])
+    return TokenOut(**session, role=user["role"])
+
+
+@app.get("/auth/me")
+def whoami(user: dict = Depends(require_user)) -> dict:
+    """Who the caller is, as the service sees it."""
+    return user
+
+
+@app.post("/auth/logout")
+def logout(
+    user: dict = Depends(require_user),
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+) -> dict:
+    """Revoke the presented session token."""
+    if credentials is not None and user.get("role") != "open-mode":
+        auth_store.drop_session(credentials.credentials)
+    return {"status": "logged out"}
+
+
+@app.get("/auth/users")
+def users(user: dict = Depends(require_user)) -> list[dict]:
+    """Account list (admin only once authenticated)."""
+    if auth_store.auth_mode() and user.get("role") != "admin":
+        raise HTTPException(403, detail="admin only")
+    return auth_store.list_users()
+
+
+
 # --- background jobs ---------------------------------------------------
 
 _JOBS: dict[str, dict] = {}
@@ -451,6 +574,7 @@ def _job_public(job: dict) -> JobOut:
         kind=job["kind"],
         status=job["status"],
         source=job.get("source", "api"),
+        user=job.get("user", "anonymous"),
         created_at=job["created_at"],
         started_at=job["started_at"],
         finished_at=job["finished_at"],
@@ -473,11 +597,13 @@ def _start_job(kind: str, **fields) -> dict:
     thread on its own, and without this the job's log lines would lose
     the request id that ties them to the HTTP call.
     """
+    user = fields.pop("user", "anonymous")
     job_id = uuid.uuid4().hex[:12]
     with _JOBS_LOCK:
         _JOBS[job_id] = {
             "job_id": job_id,
             "kind": kind,
+            "user": user,
             "status": "queued",
             "created_at": datetime.now(timezone.utc).isoformat(),
             "started_at": None,
@@ -608,7 +734,8 @@ def _run_refresh_job(job_id: str) -> None:
 
 
 @app.post("/reports", response_model=JobOut, status_code=202)
-def start_report(req: ReportRequest) -> JobOut:
+def start_report(req: ReportRequest,
+                 user: dict = Depends(require_user)) -> JobOut:
     """Queue a market report; poll GET /jobs/{job_id} for the outcome."""
     if not Path(DB_PATH).exists():
         raise HTTPException(503, detail=f"corpus not found at {DB_PATH}")
@@ -616,6 +743,7 @@ def start_report(req: ReportRequest) -> JobOut:
     job = _start_job(
         "report",
         source=req.source,
+        user=user["username"],
         brief=req.brief,
         competitors=req.competitors or list(config.COMPETITORS),
         per_query=req.per_query,
@@ -625,29 +753,40 @@ def start_report(req: ReportRequest) -> JobOut:
 
 
 @app.post("/pipeline/refresh", response_model=JobOut, status_code=202)
-def start_refresh(req: RefreshRequest) -> JobOut:
+def start_refresh(req: RefreshRequest,
+                  user: dict = Depends(require_user)) -> JobOut:
     """Queue a corpus refresh (fetch + clean + store + reindex).
 
     Idempotent: posts already in the DB are skipped, so the schedule can
     run it daily without duplicating anything.
     """
-    job = _start_job("refresh", source=req.source, limit=req.limit, reindex=req.reindex)
+    job = _start_job("refresh", user=user["username"], source=req.source,
+                     limit=req.limit, reindex=req.reindex)
     return _job_public(job)
 
 
 @app.get("/jobs", response_model=list[JobOut])
-def list_jobs(kind: str | None = None, limit: int = 20) -> list[JobOut]:
-    """Recent jobs, newest first. ``?kind=report`` filters by kind."""
+def list_jobs(kind: str | None = None, limit: int = 20,
+              user: dict = Depends(require_user)) -> list[JobOut]:
+    """Recent jobs, newest first. ``?kind=report`` filters by kind.
+
+    In authenticated mode each caller sees their own jobs (admins see
+    everything); in open mode the list is the shared history.
+    """
     with _JOBS_LOCK:
         jobs = [j for j in _JOBS.values() if kind is None or j["kind"] == kind]
+        if auth_store.auth_mode() and user.get("role") != "admin":
+            jobs = [j for j in jobs
+                    if j.get("user", "anonymous") == user["username"]]
     jobs.sort(key=lambda j: j["created_at"], reverse=True)
     return [_job_public(j) for j in jobs[: max(1, min(limit, 100))]]
 
 
 @app.get("/jobs/latest", response_model=JobOut)
-def latest_job(kind: str | None = None) -> JobOut:
+def latest_job(kind: str | None = None,
+               user: dict = Depends(require_user)) -> JobOut:
     """The newest job (404 until one has been started)."""
-    jobs = list_jobs(kind=kind, limit=1)
+    jobs = list_jobs(kind=kind, limit=1, user=user)
     if not jobs:
         raise HTTPException(
             404, detail=f"no {kind or ''} jobs yet".replace("  ", " ").strip()
@@ -656,20 +795,28 @@ def latest_job(kind: str | None = None) -> JobOut:
 
 
 @app.get("/jobs/{job_id}", response_model=JobOut)
-def get_job(job_id: str) -> JobOut:
+def get_job(job_id: str, user: dict = Depends(require_user)) -> JobOut:
     with _JOBS_LOCK:
         job = _JOBS.get(job_id)
     if job is None:
+        raise HTTPException(404, detail=f"unknown job {job_id}")
+    if (auth_store.auth_mode() and user.get("role") != "admin"
+            and job.get("user", "anonymous") != user["username"]):
+        # 404, not 403: another user's job ids must not be enumerable.
         raise HTTPException(404, detail=f"unknown job {job_id}")
     return _job_public(job)
 
 
 @app.get("/jobs/{job_id}/markdown", response_class=PlainTextResponse)
-def get_job_markdown(job_id: str) -> PlainTextResponse:
+def get_job_markdown(job_id: str,
+                     user: dict = Depends(require_user)) -> PlainTextResponse:
     """The rendered report markdown (report jobs only, once succeeded)."""
     with _JOBS_LOCK:
         job = _JOBS.get(job_id)
     if job is None:
+        raise HTTPException(404, detail=f"unknown job {job_id}")
+    if (auth_store.auth_mode() and user.get("role") != "admin"
+            and job.get("user", "anonymous") != user["username"]):
         raise HTTPException(404, detail=f"unknown job {job_id}")
     if job["kind"] != "report":
         raise HTTPException(
