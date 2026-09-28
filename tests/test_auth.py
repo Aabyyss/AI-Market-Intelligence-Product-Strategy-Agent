@@ -190,6 +190,20 @@ def test_service_token_authenticates_as_n8n(client, auth_db, monkeypatch):
                       headers=authed(client, "svc-secret-token-x")).status_code == 401
 
 
+def test_missing_auth_db_directory_reads_as_open_mode(tmp_path, monkeypatch):
+    """CI runs pytest before data/ exists: a store that cannot be opened
+    must read as "no accounts" (open mode), never as a 500. This is the
+    regression for the CI failure introduced with auth on c2ab8fc - the
+    sqlite3.connect() for data/auth.db failed through a missing directory
+    on the runner, and every protected endpoint 500'd."""
+    missing = tmp_path / "no" / "such" / "dir" / "auth.db"
+    monkeypatch.setattr(auth_store, "AUTH_DB", str(missing))
+    assert auth_store.user_count() == 0
+    assert auth_store.auth_mode() is False
+    assert auth_store.resolve_token("any-token") is None
+    assert auth_store.authenticate("alice", "password123") is None
+
+
 def test_auth_store_hashing_and_expiry(auth_db, monkeypatch):
     """Unit-level: passwords are salted+PBKDF2, expired tokens are dead."""
     user = auth_store.create_user("carol", "password123")

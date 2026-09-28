@@ -95,7 +95,18 @@ def create_user(username: str, password: str, role: str = "user") -> dict:
 
 
 def user_count() -> int:
-    conn = connect(AUTH_DB)
+    """Accounts on file; 0 when the store is unavailable.
+
+    The connect() sits inside the try on purpose: on a fresh runner the
+    data/ directory may not exist yet, and sqlite3 cannot create the
+    file through a missing directory. That must read as "no accounts"
+    (open mode), never as a 500 - auth availability is an operational
+    detail, not a request-breaking failure.
+    """
+    try:
+        conn = connect(AUTH_DB)
+    except sqlite3.Error:
+        return 0
     try:
         ensure_tables(conn)
         return conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
@@ -112,7 +123,11 @@ def auth_mode() -> bool:
 
 def authenticate(username: str, password: str) -> dict | None:
     """Verify credentials; returns the user dict or None."""
-    conn = connect(AUTH_DB)
+    try:
+        conn = connect(AUTH_DB)
+    except sqlite3.Error:
+        _hash_password(password, "00" * 16)  # constant-ish time even when down
+        return None
     try:
         ensure_tables(conn)
         row = conn.execute(
@@ -156,12 +171,15 @@ def create_session(username: str) -> dict:
 
 
 def resolve_token(token: str) -> dict | None:
-    """The user behind a bearer token, or None (unknown/expired)."""
+    """The user behind a bearer token, or None (unknown/expired/unavailable)."""
     if not token:
         return None
     if SERVICE_TOKEN and hmac.compare_digest(token, SERVICE_TOKEN):
         return {"username": "n8n", "role": "service"}
-    conn = connect(AUTH_DB)
+    try:
+        conn = connect(AUTH_DB)
+    except sqlite3.Error:
+        return None
     try:
         ensure_tables(conn)
         row = conn.execute(
