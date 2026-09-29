@@ -30,8 +30,17 @@ try the UI.
 - `docs/preview.html`: a static, interactive preview of the console
   (canned data from the verified live runs) on the project site - the
   one-click "try it" answer for the README and social posts.
-- `tests/test_learning.py` (9) and `tests/test_auth.py` (11); suite now
-  at 135 tests.
+- **Admin user management**: `DELETE /auth/users/{name}` (self-deletion
+  and last-admin refused), password reset with automatic session
+  revocation, and bulk session revoke - scoped admin-or-self.
+- The n8n workflow HTTP nodes send the service token as a bearer header,
+  so scheduled runs survive authenticated mode; documented in
+  `.env.example` (`MARKET_INTEL_SERVICE_TOKEN`, `MARKET_INTEL_AUTH_DB`,
+  `MARKET_INTEL_LEARNING`).
+- Console: sign-in card and a "What it learned" panel fed by
+  `GET /learning`.
+- `tests/test_learning.py` (9), `tests/test_auth.py` (12) and new
+  workflow/auth-header regression tests; suite now at 142 tests.
 
 ### Changed
 - `tests/conftest.py` clears the in-memory job registry per test, so
