@@ -555,9 +555,73 @@ def logout(
 @app.get("/auth/users")
 def users(user: dict = Depends(require_user)) -> list[dict]:
     """Account list (admin only once authenticated)."""
+    _require_admin(user)
+    return auth_store.list_users()
+
+
+class PasswordChange(BaseModel):
+    new_password: str = Field(min_length=8, max_length=128)
+
+
+def _require_admin(user: dict) -> None:
     if auth_store.auth_mode() and user.get("role") != "admin":
         raise HTTPException(403, detail="admin only")
-    return auth_store.list_users()
+
+
+@app.delete("/auth/users/{username}")
+def delete_user(username: str, user: dict = Depends(require_user)) -> dict:
+    """Remove an account and all of its sessions (admin only).
+
+    Self-deletion is refused so an admin cannot lock everyone out -
+    including themselves - by accident.
+    """
+    _require_admin(user)
+    if username == user["username"]:
+        raise HTTPException(422, detail="admins cannot delete their own account")
+    try:
+        if not auth_store.delete_user(username):
+            raise HTTPException(404, detail=f"unknown user {username}")
+    except auth_store.LastAdminError as exc:
+        raise HTTPException(422, detail=str(exc)) from exc
+    log.info("admin %s deleted user %s", user["username"], username)
+    return {"status": "deleted", "username": username}
+
+
+@app.post("/auth/users/{username}/password")
+def reset_password(
+    username: str, req: PasswordChange,
+    user: dict = Depends(require_user),
+) -> dict:
+    """Set a new password for an account (admin, or the account owner)."""
+    if auth_store.auth_mode() and user.get("role") != "admin" \
+            and user["username"] != username:
+        raise HTTPException(403, detail="admins reset other users; users reset themselves")
+    try:
+        auth_store.reset_password(username, req.new_password)
+    except ValueError as exc:
+        raise HTTPException(404, detail=str(exc)) from exc
+    # Password resets revoke every live session for that account.
+    revoked = auth_store.revoke_user_sessions(username)
+    log.info("%s reset password for %s (%s sessions revoked)",
+             user["username"], username, revoked)
+    return {"status": "password updated", "username": username,
+            "sessions_revoked": revoked}
+
+
+@app.post("/auth/users/{username}/revoke")
+def revoke_sessions(
+    username: str, user: dict = Depends(require_user),
+) -> dict:
+    """Kill every live session for an account (admin or self)."""
+    if auth_store.auth_mode() and user.get("role") != "admin" \
+            and user["username"] != username:
+        raise HTTPException(403, detail="admins revoke other users; users revoke themselves")
+    if not auth_store.user_exists(username):
+        raise HTTPException(404, detail=f"unknown user {username}")
+    revoked = auth_store.revoke_user_sessions(username)
+    log.info("%s revoked %s sessions for %s", user["username"], revoked, username)
+    return {"status": "sessions revoked", "username": username,
+            "sessions_revoked": revoked}
 
 
 

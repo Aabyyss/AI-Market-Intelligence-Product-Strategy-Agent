@@ -235,3 +235,97 @@ def list_users() -> list[dict]:
                 for r in rows]
     finally:
         conn.close()
+
+
+class LastAdminError(Exception):
+    """Refused: the operation would remove the only admin."""
+
+
+def _count_admins(conn: sqlite3.Connection) -> int:
+    return conn.execute(
+        "SELECT COUNT(*) FROM users WHERE role = 'admin'"
+    ).fetchone()[0]
+
+
+def user_exists(username: str) -> bool:
+    try:
+        conn = connect(AUTH_DB)
+    except sqlite3.Error:
+        return False
+    try:
+        ensure_tables(conn)
+        row = conn.execute(
+            "SELECT 1 FROM users WHERE username = ?", (username,)
+        ).fetchone()
+        return row is not None
+    except sqlite3.Error:
+        return False
+    finally:
+        conn.close()
+
+
+def delete_user(username: str) -> bool:
+    """Remove an account and its sessions. Raises LastAdminError when the
+    account is the only admin; returns False when it does not exist."""
+    try:
+        conn = connect(AUTH_DB)
+    except sqlite3.Error:
+        return False
+    try:
+        ensure_tables(conn)
+        row = conn.execute(
+            "SELECT role FROM users WHERE username = ?", (username,)
+        ).fetchone()
+        if row is None:
+            return False
+        if row[0] == "admin" and _count_admins(conn) <= 1:
+            raise LastAdminError("cannot delete the only admin")
+        conn.execute("DELETE FROM sessions WHERE username = ?", (username,))
+        conn.execute("DELETE FROM users WHERE username = ?", (username,))
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+
+def reset_password(username: str, new_password: str) -> None:
+    """Replace an account's password; ValueError for unknown users or a
+    too-short password. Callers revoke sessions afterwards."""
+    if len(new_password) < 8:
+        raise ValueError("password must be at least 8 characters")
+    try:
+        conn = connect(AUTH_DB)
+    except sqlite3.Error as exc:
+        raise ValueError(f"auth store unavailable: {exc}") from exc
+    try:
+        ensure_tables(conn)
+        row = conn.execute(
+            "SELECT 1 FROM users WHERE username = ?", (username,)
+        ).fetchone()
+        if row is None:
+            raise ValueError(f"unknown user {username}")
+        salt = secrets.token_hex(16)
+        conn.execute(
+            "UPDATE users SET pw_salt = ?, pw_hash = ? WHERE username = ?",
+            (salt, _hash_password(new_password, salt), username),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def revoke_user_sessions(username: str) -> int:
+    """Delete every session for an account; returns how many died."""
+    try:
+        conn = connect(AUTH_DB)
+    except sqlite3.Error:
+        return 0
+    try:
+        ensure_tables(conn)
+        cur = conn.execute(
+            "DELETE FROM sessions WHERE username = ?", (username,)
+        )
+        conn.commit()
+        return cur.rowcount
+    finally:
+        conn.close()

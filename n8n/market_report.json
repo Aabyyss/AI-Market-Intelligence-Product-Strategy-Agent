@@ -85,6 +85,15 @@
         "jsonBody": "={{ JSON.stringify({ brief: $json.brief, per_query: $json.per_query, source: 'n8n' }) }}",
         "options": {
           "timeout": 30000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.MARKET_INTEL_SERVICE_TOKEN }}"
+            }
+          ]
         }
       },
       "id": "a1000000-0000-4000-8000-000000000003",
@@ -131,6 +140,15 @@
         "url": "={{ $json.api_base }}/jobs/{{ $json.job_id }}",
         "options": {
           "timeout": 30000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.MARKET_INTEL_SERVICE_TOKEN }}"
+            }
+          ]
         }
       },
       "id": "a1000000-0000-4000-8000-000000000006",

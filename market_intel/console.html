@@ -141,6 +141,17 @@
   .hero{font-size:1.35rem;font-weight:700;letter-spacing:-.02em;margin-bottom:4px}
   .hero em{font-style:normal;color:var(--acc)}
 
+  /* ---------- account ---------- */
+  .acct input{margin-bottom:6px}
+  .acct .who{font-size:.82rem;color:var(--dim);margin:2px 0 8px}
+  .acct .who b{color:var(--fg);font-weight:600}
+  .hint{font-size:.72rem;color:var(--faint);margin:6px 0 0;line-height:1.5}
+  #who b{color:var(--acc);font-weight:600}
+  .learn{font-size:.76rem;color:var(--dim);line-height:1.5}
+  .learn .lrow{display:flex;justify-content:space-between;gap:6px;padding:3px 0;border-bottom:1px solid var(--line)}
+  .learn .lq{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:.72rem}
+  .learn .ls{color:var(--acc);font-family:var(--mono);flex:none}
+
   /* toast */
   #toasts{position:fixed;right:18px;bottom:18px;display:flex;flex-direction:column;gap:8px;z-index:9}
   .toast{background:var(--panel2);border:1px solid var(--line2);border-left:3px solid var(--ok);border-radius:8px;
@@ -156,6 +167,7 @@
   <div class="spacer"></div>
   <span class="ver"><a href="/docs" target="_blank" rel="noopener" title="OpenAPI docs">API docs</a></span>
   <span class="ver" id="ver"></span>
+  <span class="ver" id="who" hidden></span>
   <button id="theme" title="Toggle light / dark (shift+T)" aria-label="Toggle color theme">&#9788;</button>
 </header>
 <main>
@@ -178,6 +190,12 @@
 
     <h2>Recent jobs</h2>
     <table id="jobs"><tbody><tr><td class="muted">none yet</td></tr></tbody></table>
+
+    <h2>What it learned</h2>
+    <div id="learn" class="learn">…</div>
+
+    <h2>Account</h2>
+    <div class="acct" id="acct"></div>
   </nav>
   <section class="content" id="content"></section>
 </main>
@@ -214,12 +232,114 @@ function toast(msg, bad) {
   setTimeout(() => t.remove(), 4000);
 }
 
+/* ---------- auth: bearer token in localStorage, open mode until
+   the first account exists server-side ---------- */
+function savedAuth() {
+  try { return JSON.parse(localStorage.getItem("mi-auth") || "null"); }
+  catch { return null; }
+}
+function saveAuth(t) {
+  try { localStorage.setItem("mi-auth", JSON.stringify(t)); } catch { /* private mode */ }
+}
+function clearAuth() {
+  try { localStorage.removeItem("mi-auth"); } catch { /* private mode */ }
+}
+
 async function api(path, opts) {
+  opts = Object.assign({}, opts);
+  opts.headers = Object.assign({}, authHeaders(), opts.headers || {});
   const r = await fetch(path, opts);
   let body = null;
   try { body = await r.json(); } catch { /* non-JSON error body */ }
-  if (!r.ok) throw Object.assign(new Error((body && body.error) || r.statusText), {body});
+  if (!r.ok) {
+    if (r.status === 401 && !path.startsWith("/auth")) {
+      // session expired or revoked: drop the stale token, show sign-in
+      clearAuth(); me = null; authMode = true; renderAuth();
+    }
+    throw Object.assign(new Error((body && (body.detail || body.error)) || r.statusText), {body});
+  }
   return body;
+}
+
+let me = null;        // {username, role} when signed in
+let authMode = false; // true once any account exists server-side
+
+function authHeaders() {
+  const t = savedAuth();
+  return t && t.token ? { Authorization: "Bearer " + t.token } : {};
+}
+
+async function probeAuth() {
+  try {
+    me = await api("/auth/me");
+    authMode = me.username !== "anonymous";
+    if (!authMode) me = null;
+  } catch { me = null; authMode = true; }
+  renderAuth();
+}
+
+function renderAuth() {
+  const el = $("acct"), who = $("who");
+  if (me) {
+    who.hidden = false; who.innerHTML = "@<b>" + esc(me.username) + "</b>";
+    el.innerHTML = `<div class="who">signed in as <b>${esc(me.username)}</b>
+      <span class="pill run">${esc(me.role ?? "user")}</span></div>
+      <button id="logout">Sign out</button>`;
+    $("logout").onclick = async () => {
+      try { await api("/auth/logout", { method: "POST" }); } catch { /* already gone */ }
+      clearAuth(); me = null; renderAuth(); refreshJobs(); toast("Signed out");
+    };
+    return;
+  }
+  who.hidden = true;
+  el.innerHTML = `
+    <input id="u" placeholder="username" autocomplete="username">
+    <input id="p" type="password" placeholder="password" autocomplete="current-password">
+    <div class="btnrow">
+      <button id="login">Sign in</button>
+      ${authMode ? "" : '<button id="register" class="primary">Create admin</button>'}
+    </div>
+    <p class="hint">${authMode
+      ? "sessions last 7 days; the service token keeps n8n flows working"
+      : "open mode: the API is public until the first account is created &mdash; that account becomes the admin and the service locks down"}</p>`;
+  $("login").onclick = doLogin;
+  if (!authMode) $("register").onclick = doRegister;
+  $("p").addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
+}
+
+/* ---------- self-learning card: what the query loop knows ---------- */
+async function loadLearning() {
+  try {
+    const s = await api("/learning");
+    const el = $("learn");
+    if (!s.queries_tracked) {
+      el.textContent = "nothing yet - gaps and winners appear as reports run";
+      return;
+    }
+    el.innerHTML = `${s.topics} topic${s.topics === 1 ? "" : "s"}, ${s.queries_tracked} tracked:` +
+      s.top.slice(0, 3).map(t =>
+        `<div class="lrow" title="${esc(t.topic)} - strength ${esc(t.strength)} (times it retrieved)"><span class="lq">${esc(t.query)}</span><span class="ls">x${esc(t.strength)}</span></div>`).join("");
+  } catch { $("learn").textContent = "learning stats unavailable"; }
+}
+
+async function doLogin() {
+  try {
+    const t = await api("/auth/login", { method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({username: $("u").value.trim(), password: $("p").value}) });
+    saveAuth(t); me = {username: t.username, role: t.role};
+    renderAuth(); refreshJobs(); toast("Welcome, " + t.username);
+  } catch (e) { toast("Sign-in failed: " + e.message, true); }
+}
+
+async function doRegister() {
+  try {
+    const t = await api("/auth/register", { method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({username: $("u").value.trim(), password: $("p").value}) });
+    saveAuth(t); me = {username: t.username, role: t.role};
+    renderAuth(); refreshJobs(); toast("Admin account created: " + t.username);
+  } catch (e) { toast("Could not register: " + e.message, true); }
 }
 
 function rt(iso) {
@@ -281,10 +401,11 @@ function jobRow(j) {
   const cls = j.status === "succeeded" ? "ok" : j.status === "failed" ? "bad" : "run";
   const label = j.kind === "report" ? (j.result?.topic ?? j.result?.brief ?? "report") : "corpus refresh";
   const src = j.source && j.source !== "api" ? ` <span class="pill run">${esc(j.source)}</span>` : "";
+  const who = authMode && j.user && j.user !== "anonymous" ? " - @" + esc(j.user) : "";
   const t = document.createElement("td");
   t.innerHTML = `<span class="jlabel">${esc(label)} ${src}</span>
     <span class="pill ${cls}${cls === "run" ? " live" : ""}">${esc(j.status)}</span>
-    <div class="jmeta">${esc(rt(j.created_at))}${j.duration_seconds ? " - " + esc(fmtDur(j.duration_seconds)) : ""}</div>`;
+    <div class="jmeta">${esc(rt(j.created_at))}${j.duration_seconds ? " - " + esc(fmtDur(j.duration_seconds)) : ""}${who}</div>`;
   return t;
 }
 
@@ -312,7 +433,7 @@ async function refreshJobs() {
             const nj = await api("/jobs/" + j.job_id);
             if (nj.status !== "queued" && nj.status !== "running") {
               clearInterval(pollers.get(j.job_id)); pollers.delete(j.job_id);
-              refreshJobs(); refreshHealth();
+              refreshJobs(); refreshHealth(); loadLearning();
               toast(nj.status === "succeeded" ? "Job finished: " + nj.kind : "Job failed: " + nj.kind,
                     nj.status !== "succeeded");
               if (currentJob === nj.job_id) showJob(nj.job_id);
@@ -442,7 +563,8 @@ for (const ex of EXAMPLES) {
 }
 
 refreshHealth();
-refreshJobs();
+loadLearning();
+probeAuth().then(refreshJobs);
 setInterval(refreshHealth, 15000);
 </script>
 </body>

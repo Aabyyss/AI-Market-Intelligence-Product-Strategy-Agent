@@ -172,6 +172,68 @@ def test_users_list_is_admin_only(client, auth_db):
     assert [u["username"] for u in users] == ["alice", "bob"]
 
 
+# --- admin user management ----------------------------------------------
+
+def test_admin_can_delete_users_but_not_themselves_or_last_admin(client, auth_db):
+    register(client, "alice")  # first user -> admin
+    register(client, "bob")
+    alice = client.post("/auth/login",
+                        json={"username": "alice", "password": "password123"}).json()
+    ah = authed(client, alice["token"])
+
+    # deleting: bob goes, self-deletion and last-admin are refused
+    assert client.delete("/auth/users/bob", headers=ah).status_code == 200
+    assert client.delete("/auth/users/bob", headers=ah).status_code == 404
+    assert client.delete("/auth/users/alice", headers=ah).status_code == 422
+    # alice is still the only admin, so even with another user present
+    # the deletion is refused
+    register(client, "carol")
+    assert client.delete("/auth/users/alice", headers=ah).status_code == 422
+
+
+def test_password_reset_revokes_sessions(client, auth_db):
+    register(client, "alice")
+    register(client, "bob")
+    alice = client.post("/auth/login",
+                        json={"username": "alice", "password": "password123"}).json()
+    bob = client.post("/auth/login",
+                      json={"username": "bob", "password": "password123"}).json()
+    ah = authed(client, alice["token"])
+    bh = authed(client, bob["token"])
+
+    # bob cannot reset alice's password; alice (admin) resets bob's
+    assert client.post("/auth/users/alice/password", json={"new_password": "new-pass-123"},
+                       headers=bh).status_code == 403
+    r = client.post("/auth/users/bob/password", json={"new_password": "new-pass-123"},
+                    headers=ah)
+    assert r.status_code == 200 and r.json()["sessions_revoked"] >= 1
+    # bob's old session died with the reset
+    assert client.get("/auth/me", headers=bh).status_code == 401
+    # and the new password works
+    assert client.post("/auth/login", json={"username": "bob",
+                       "password": "new-pass-123"}).status_code == 200
+
+
+def test_revoke_sessions_endpoint(client, auth_db):
+    register(client, "alice")
+    register(client, "bob")
+    alice = client.post("/auth/login",
+                        json={"username": "alice", "password": "password123"}).json()
+    bob = client.post("/auth/login",
+                      json={"username": "bob", "password": "password123"}).json()
+    ah = authed(client, alice["token"])
+    assert client.post("/auth/users/bob/revoke", headers=ah).status_code == 200
+    assert client.get("/auth/me", headers=authed(client, bob["token"])).status_code == 401
+    assert client.post("/auth/users/nobody/revoke", headers=ah).status_code == 404
+
+
+def test_store_level_delete_rejects_last_admin(auth_db):
+    auth_store.create_user("solo", "password123")  # first user = admin
+    with pytest.raises(auth_store.LastAdminError):
+        auth_store.delete_user("solo")
+    assert auth_store.delete_user("ghost") is False
+
+
 # --- the service token (scheduled flows) --------------------------------
 
 def test_service_token_authenticates_as_n8n(client, auth_db, monkeypatch):

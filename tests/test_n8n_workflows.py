@@ -39,6 +39,42 @@ def node(wf: dict, name: str) -> dict:
     raise AssertionError(f"node {name!r} not found in workflow {wf.get('name')!r}")
 
 
+class TestApiAuthHeaders:
+    """API-calling HTTP nodes must send the service-token bearer header,
+
+    so the scheduled flows keep working after the first account locks the
+    service down (the workflow nodes read $env.MARKET_INTEL_SERVICE_TOKEN;
+    Slack webhook nodes are exempt - Slack has no use for our token)."""
+
+    def test_api_nodes_send_bearer_header(self, workflows):
+        for wf in workflows.values():
+            for n in wf["nodes"]:
+                if n.get("type") != "n8n-nodes-base.httpRequest":
+                    continue
+                url = str(n.get("parameters", {}).get("url", ""))
+                if not any(s in url for s in ("/jobs", "/pipeline", "/reports")):
+                    continue
+                headers = n["parameters"].get("headerParameters", {})
+                params = headers.get("parameters", [])
+                assert any(
+                    p.get("name") == "Authorization"
+                    and "MARKET_INTEL_SERVICE_TOKEN" in str(p.get("value", ""))
+                    for p in params
+                ), f"{n['name']} in {wf['name']} does not send the service token"
+
+    def test_slack_nodes_do_not_send_our_token(self, workflows):
+        for wf in workflows.values():
+            for n in wf["nodes"]:
+                if n.get("type") != "n8n-nodes-base.httpRequest":
+                    continue
+                url = str(n.get("parameters", {}).get("url", ""))
+                if "hooks.slack.com" not in url:
+                    continue
+                assert "headerParameters" not in n.get("parameters", {}), (
+                    f"{n['name']} must not send the service token to Slack"
+                )
+
+
 class TestScheduleTriggers:
     """The manual-run recipe starts from the trigger node by name."""
 
