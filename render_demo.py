@@ -93,8 +93,16 @@ def find_ffmpeg() -> str:
 
 
 def reel_stamp(path: Path = REEL) -> str:
-    """Identity of the reel source — any edit to it changes this."""
-    return "reel-" + hashlib.sha256(path.read_bytes()).hexdigest()[:16]
+    """Identity of the reel source — any edit to it changes this.
+
+    Line endings are normalized before hashing: git stores the file as
+    LF while a Windows checkout may hold CRLF, and a stamp that depends
+    on checkout style would make the committed video "stale" in CI but
+    fresh locally (or the reverse) - which is exactly the failure this
+    normalization removes.
+    """
+    data = path.read_bytes().replace(b"\r\n", b"\n")
+    return "reel-" + hashlib.sha256(data).hexdigest()[:16]
 
 
 def free_port() -> int:

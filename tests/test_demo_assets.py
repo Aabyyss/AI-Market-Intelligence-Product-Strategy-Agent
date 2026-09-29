@@ -112,9 +112,12 @@ def test_committed_video_is_not_stale():
     """The video is stamped with the hash of the reel it was rendered from.
 
     Edit any word or timing in docs/demo.html and this fails, because the
-    committed video now shows something the reel no longer claims.
+    committed video now shows something the reel no longer claims. Line
+    endings are normalized first (git stores LF, Windows checkouts are
+    CRLF), so the stamp means the same bytes on every platform.
     """
-    stamp = "reel-" + hashlib.sha256(REEL.read_bytes()).hexdigest()[:16]
+    data = REEL.read_bytes().replace(b"\r\n", b"\n")
+    stamp = "reel-" + hashlib.sha256(data).hexdigest()[:16]
     assert stamp.encode() in VIDEO.read_bytes(), (
         "docs/demo.mp4 was rendered from an older docs/demo.html — "
         "re-run `python render_demo.py`"
