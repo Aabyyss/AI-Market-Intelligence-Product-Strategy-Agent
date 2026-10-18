@@ -25,6 +25,7 @@ python render_demo.py                 # docs/demo.mp4, 30 fps, 1280x720
 python render_demo.py --fps 24        # smaller file
 python render_demo.py --format png    # lossless frames (about 2x slower)
 python render_demo.py --only-seconds 5   # smoke-test the pipeline
+python render_demo.py --frames 1 --theme light   # one light frame, no poster
 ```
 
 It drives headless Chrome over the DevTools Protocol and asks the page to
