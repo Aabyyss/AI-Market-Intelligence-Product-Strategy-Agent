@@ -47,6 +47,18 @@ try the UI.
   job history cannot leak between tests now that jobs carry users.
 - Project site links the preview first and embeds both theme videos.
 
+### Fixed
+- **Light demo reel opening frame**: the intro's tech chips kept their
+  dark-theme background (`#0d141d`) under the light palette, so
+  `demo-light.mp4` opened on near-black pills with dim text. The light
+  theme now repaints the chips, and both videos plus the light poster
+  were re-rendered from the fixed reel - re-attach the new
+  `docs/demo-light.mp4` if you shared the old one.
+- Static palette guard: `test_demo_assets.py` now fails on any
+  dark-only hardcoded background in the reel, the console, or
+  `preview.html`, and CI smoke-renders one frame per theme on every
+  push (`render_demo.py --frames`).
+
 ## 1.1.1 - 2026-09-27
 
 The automation layer ran for real: both n8n workflows executed
