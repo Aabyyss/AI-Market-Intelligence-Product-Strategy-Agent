@@ -39,6 +39,14 @@ try the UI.
   `MARKET_INTEL_LEARNING`).
 - Console: sign-in card and a "What it learned" panel fed by
   `GET /learning`.
+- `verify_admin.py`: a reproducible live check of the admin auth
+  endpoints on an isolated throwaway instance (14 PASS lines; exit
+  code gates); its first run is recorded in
+  `docs/AUTH_LIVE_CHECK_2026-10-19.md`.
+- `.github/workflows/reel-smoke.yml`: smoke-renders one demo frame per
+  theme on every push (`render_demo.py --frames`).
+- `CONTRIBUTING.md`: dev setup, the enforced guards, and the commit
+  style in one place.
 - `tests/test_learning.py` (9), `tests/test_auth.py` (12) and new
   workflow/auth-header regression tests; suite now at 142 tests.
 
