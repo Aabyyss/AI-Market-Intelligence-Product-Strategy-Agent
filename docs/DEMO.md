@@ -30,8 +30,9 @@ python render_demo.py --frames 1 --theme light   # one light frame, no poster
 
 It drives headless Chrome over the DevTools Protocol and asks the page to
 freeze at an exact timestamp for every frame (`?render=1`), so the output does
-not depend on the machine keeping up: same input, same video. Roughly 6
-minutes for the full 2280 frames, single-threaded, on a laptop. Needs a
+not depend on the machine keeping up: same input, same video. Roughly 5–6
+minutes for the full 2640 frames (88 s × 30 fps), single-threaded, on a laptop.
+Needs a
 Chromium browser (Chrome or Edge) and ffmpeg — `pip install imageio-ffmpeg`
 if you don't have one on PATH.
 
