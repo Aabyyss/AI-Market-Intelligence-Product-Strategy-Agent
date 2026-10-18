@@ -145,7 +145,7 @@ looks today.
 
 ## Status
 
-- 142 tests green locally and in CI; retrieval-quality gate on every push.
+- 148 tests green locally and in CI; retrieval-quality gate on every push.
 - Both n8n workflows verified live end-to-end, including the failure
   path (Slack alert on a failed refresh).
 - All six phases shipped; v2 candidates live in the roadmap below.
