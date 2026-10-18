@@ -79,6 +79,7 @@ repo's commit history is the phase log.
 | 8 | Tests stub the network, and a guard enforces it | CI must never touch HN; an unstubbed test once fetched Hacker News for real inside a CI run | none; raising stubs fail in milliseconds with the fix in the message |
 | 9 | Exported n8n JSONs stay secret-free via `$env` | the workflows are committed; only the `.env` (gitignored) knows the webhook | n8n denies `$env` reads by default — the launcher sets `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` |
 | 10 | Console is one offline HTML file, enforced by tests | zero build step, works on an airgapped laptop; drift is caught by byte-equality test | no shared component library; acceptable at this size |
+| 11 | CI smoke-renders one demo frame per theme, not the whole reel | a stale stamp proves the video is old, not that the render pipeline still works; a full 88 s render per push costs ~6 min for proof that one frame already provides | a 1-frame MP4 proves drawing but not scene timing - still the pytest stamp + shape checks' job |
 
 ## Problem → fix log
 
