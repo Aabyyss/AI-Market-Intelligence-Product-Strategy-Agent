@@ -326,6 +326,8 @@ backend, clearly labeled. The real console needs the API running (below).
   headless Chrome over the DevTools Protocol, freezing each frame at an exact
   timestamp so the output is reproducible. Needs a Chromium browser;
   `pip install imageio-ffmpeg` if you have no ffmpeg on PATH.
+  `--frames N` renders only the first N frames (smoke mode: also skips the
+  README posters) — that is how CI checks the pipeline on every push.
 - `docs/DEMO.md` — the live screen-recording script (shot list, exact commands,
   narration), an AI-video-generator prompt, and the claims that are safe to make
   about this project.
