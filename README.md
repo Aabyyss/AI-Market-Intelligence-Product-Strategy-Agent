@@ -341,6 +341,7 @@ backend, clearly labeled. The real console needs the API running (below).
 ```
 ARCHITECTURE.md  # how the pieces fit: layers, agents, n8n topology, failure modes
 PROJECT.md       # phased build story, decision log, problem-to-fix record, roadmap
+CONTRIBUTING.md  # dev setup, the guards CI enforces, commit style
 tests/
   test_vector_search.py  # sqlite-vec vs numpy cosine regression suite
   test_agents.py         # agent plumbing: parsing, audits, typed verdicts
