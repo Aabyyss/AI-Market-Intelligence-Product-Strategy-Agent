@@ -237,7 +237,15 @@ def paints_a_surface(declaration: str) -> bool:
     return prop in SURFACE_PROPS
 
 
-@pytest.mark.parametrize("relpath", sorted(LIGHT_THEME_PAGES))
+PALETTE_PAGES = {
+    "docs/demo.html": "demo-reel",
+    "docs/preview.html": "static-preview",
+    "market_intel/console.html": "console",
+}
+
+
+@pytest.mark.parametrize("relpath", sorted(LIGHT_THEME_PAGES),
+                         ids=[PALETTE_PAGES[p] for p in sorted(LIGHT_THEME_PAGES)])
 def test_light_palette_repaints_every_dark_surface(relpath: str):
     """A surface painted dark for the default look must get a light repaint.
 
@@ -272,7 +280,8 @@ def test_light_palette_repaints_every_dark_surface(relpath: str):
     )
 
 
-@pytest.mark.parametrize("relpath", sorted(LIGHT_THEME_PAGES))
+@pytest.mark.parametrize("relpath", sorted(LIGHT_THEME_PAGES),
+                         ids=[PALETTE_PAGES[p] for p in sorted(LIGHT_THEME_PAGES)])
 def test_no_dark_surface_hidden_in_inline_styles(relpath: str):
     """Inline style attributes beat even the theme's light rules, so a dark
     paint may only appear there on elements where both themes want it: the
