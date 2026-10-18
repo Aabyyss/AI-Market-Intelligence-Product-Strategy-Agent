@@ -146,22 +146,59 @@ def test_renderer_still_points_at_the_reel():
     assert 'docs" / "demo.mp4"' in source
 
 
-# --- Light-theme coverage of the reel's palette ------------------------
+# --- Light-theme coverage of the palette guard -------------------------
 #
-# One HTML file renders both videos. The dark look is the default
-# stylesheet; the light look exists only because a second <style> block
-# redefines the tokens and re-paints the surfaces whose colors were
-# hardcoded for the dark stage. Miss one such surface and the light
-# video opens on a black pill with dark text - exactly the v1.2.0
-# intro regression (`.badge` kept `#0d141d`) that shipped on
-# demo-light.mp4. Both checks are static on purpose: the suite runs in
-# CI without a browser, and a color audit is pure text work.
+# Three pages ship dark-first HTML with a light look bolted on: the
+# demo reel (both videos render from docs/demo.html), the console UI,
+# and the static preview. The dark look is the default stylesheet; the
+# light look exists only because theme-marked rules redefine the tokens
+# and re-paint the surfaces whose colors were hardcoded for the dark
+# stage. Miss one such surface and the light view opens on a black pill
+# with dark text - exactly the v1.2.0 intro regression (`.badge` kept
+# `#0d141d`) that shipped on demo-light.mp4. Both checks are static on
+# purpose: the suite runs in CI without a browser, and a color audit is
+# pure text work.
 
 # A painted surface this dark reads as a black panel on the light
-# stage. Every dark-palette surface in the reel sits far below it.
+# stage. Every dark-palette surface in these pages sits far below it.
 DARK_SURFACE_LUMINANCE = 0.15
 
 SURFACE_PROPS = ("background", "background-color", "background-image")
+
+# Page -> the selector text that marks its light-theme rules.
+LIGHT_THEME_PAGES = {
+    "docs/demo.html": 'data-reel-theme="light"',
+    "market_intel/console.html": 'data-theme="light"',
+    "docs/preview.html": 'data-theme="light"',
+}
+
+
+def page(relpath: str) -> str:
+    return (ROOT / relpath).read_text(encoding="utf-8")
+
+
+def palette_rules(relpath: str) -> tuple[list, list]:
+    """(base rules, light-theme rules) for one guarded page.
+
+    All <style> blocks are joined, comments stripped, split into rules;
+    a rule belongs to the light palette when its selector carries the
+    page's theme marker, to the base palette otherwise.
+    """
+    blocks = re.findall(r"<style>(.*?)</style>", page(relpath), re.DOTALL)
+    assert blocks, f"{relpath} has no stylesheet"
+    css = re.sub(r"/\*.*?\*/", "", "\n".join(blocks), flags=re.DOTALL)
+    marker = LIGHT_THEME_PAGES[relpath]
+    rules = css_rules(css)
+    light = [rule for rule in rules if marker in rule[0]]
+    assert light, f"{relpath} declares no {marker} rules"
+    return [rule for rule in rules if marker not in rule[0]], light
+
+
+def selector_tokens(header: str) -> frozenset[str]:
+    """Selector words, ignoring combinator syntax so 'html, body' in the
+    base rules matches 'html[data-reel-theme="light"] body' in the light
+    rules (both reduce to the tokens html and body)."""
+    return frozenset(t for t in re.split(r"[^a-zA-Z0-9_-]+", header) if t)
 
 
 def srgb_luminance(hex_color: str) -> float:
@@ -177,32 +214,12 @@ def srgb_luminance(hex_color: str) -> float:
     return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
 
 
-def style_blocks(html: str) -> tuple[str, str]:
-    """(base palette, light-theme override block) straight from the markup."""
-    blocks = re.findall(r"<style>(.*?)</style>", html, re.DOTALL)
-    assert len(blocks) == 2, (
-        f"expected a base and a light <style> block, found {len(blocks)}"
-    )
-    return blocks[0], blocks[1]
-
-
 def css_rules(css: str) -> list[tuple[str, str]]:
-    """Every {selector: declarations} pair, including @keyframe inner rules.
-
-    Comments are removed first: they sit between rules and would otherwise
-    glue onto the header regex's selector text."""
-    css = re.sub(r"/\*.*?\*/", "", css, flags=re.DOTALL)
+    """Every {selector: declarations} pair, including @keyframe inner rules."""
     return [
         (header.strip(), body)
         for header, body in re.findall(r"([^{}]+)\{([^{}]*)\}", css)
     ]
-
-
-def selector_tokens(header: str) -> frozenset[str]:
-    """Selector words, ignoring combinator syntax so 'html, body' in the
-    base block matches 'html[data-reel-theme="light"] body' in the light
-    block (both reduce to the tokens html and body)."""
-    return frozenset(t for t in re.split(r"[^a-zA-Z0-9_-]+", header) if t)
 
 
 def dark_hexes(value: str) -> list[str]:
@@ -217,19 +234,19 @@ def paints_a_surface(declaration: str) -> bool:
     return prop in SURFACE_PROPS
 
 
-def test_light_palette_repaints_every_dark_surface():
-    """A surface painted dark for the stage default must get a light repaint.
+@pytest.mark.parametrize("relpath", sorted(LIGHT_THEME_PAGES))
+def test_light_palette_repaints_every_dark_surface(relpath: str):
+    """A surface painted dark for the default look must get a light repaint.
 
     Scope is backgrounds only (panels, terminals, pills, the stage itself):
     those are what black out and become unreadable. Accent strokes - the
-    bar-fill gradient stops (#2f6f4f / #2b4a7a) and the hot-box border - are
-    deliberately dark on both themes and are exempted by name.
+    bar-fill gradient stops (#2f6f4f / #2b4a7a) and buttons - are
+    deliberately two-tone (or token-painted) and are exempted by name.
     """
-    base, light = style_blocks(reel())
-    light_rules = css_rules(light)
+    base, light_rules = palette_rules(relpath)
 
     offenders = []
-    for header, body in css_rules(base):
+    for header, body in base:
         if "fill" in selector_tokens(header):
             continue  # data-viz fill bars: two-stop gradients, ok on both themes
         for declaration in body.split(";"):
@@ -247,17 +264,20 @@ def test_light_palette_repaints_every_dark_surface():
                 offenders.append(f"{header} -> {prop}: {value}")
 
     assert offenders == [], (
-        "dark surfaces with no repaint in the light <style> block - the light "
-        "demo would show them as unreadable black panels: " + "; ".join(offenders)
+        f"{relpath}: dark surfaces with no repaint under the light theme - "
+        "they would show as unreadable black panels: " + "; ".join(offenders)
     )
 
 
-def test_no_dark_surface_hidden_in_inline_styles():
-    """Inline style attributes beat even the light-theme block, so a dark
+@pytest.mark.parametrize("relpath", sorted(LIGHT_THEME_PAGES))
+def test_no_dark_surface_hidden_in_inline_styles(relpath: str):
+    """Inline style attributes beat even the theme's light rules, so a dark
     paint may only appear there on elements where both themes want it: the
-    bar fills. Anything else hides from this file's first test entirely."""
+    reel's bar fills. Anything else hides from the palette check entirely.
+    JS-written styles (element.style.x = ...) are out of static reach and
+    left to the browser smoke check."""
     offenders = []
-    for tag in re.finditer(r"<[a-z][^>]*>", reel()):
+    for tag in re.finditer(r"<[a-z][^>]*>", page(relpath)):
         style = re.search(r'style="([^"]*)"', tag.group(0))
         if not style or not dark_hexes(style.group(1)):
             continue
@@ -266,6 +286,6 @@ def test_no_dark_surface_hidden_in_inline_styles():
             continue
         offenders.append(style.group(1))
     assert offenders == [], (
-        "inline dark paints survive both themes - exempt as a fill or drop the "
-        f"hardcode: {offenders}"
+        f"{relpath}: inline dark paints survive both themes - exempt as a "
+        f"fill or drop the hardcode: {offenders}"
     )
