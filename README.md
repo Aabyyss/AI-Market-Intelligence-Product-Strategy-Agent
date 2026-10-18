@@ -6,7 +6,8 @@ PRDs. Built incrementally, phase by phase.
 
 Deep dives: [ARCHITECTURE.md](ARCHITECTURE.md) (how the pieces fit and why) ·
 [PROJECT.md](PROJECT.md) (build story, decision log, problem-to-fix record,
-roadmap) · [n8n/README.md](n8n/README.md) (orchestration + live-run receipts).
+roadmap) · [CONTRIBUTING.md](CONTRIBUTING.md) (dev setup + enforced conventions) ·
+[n8n/README.md](n8n/README.md) (orchestration + live-run receipts).
 
 ## Phase 1: data pipeline — fetch → clean → store
 
