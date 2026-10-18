@@ -392,6 +392,7 @@ run_report.py   # CLI: multi-agent market report
 run_eval.py     # CLI: evaluation harness (retrieval + answer quality)
 run_corpus.py   # CLI: export/seed the corpus fixture (network-free CI)
 run_api.py      # CLI: serve the API (uvicorn)
+verify_admin.py # CLI: live admin-auth check on an isolated throwaway instance
 app.py          # desktop launcher: free port, wait /health, open /console
 render_demo.py  # CLI: render docs/demo.html into docs/demo.mp4, frame by frame
 Dockerfile      # model baked in + sqlite-vec smoke-tested at build
