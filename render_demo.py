@@ -10,6 +10,7 @@ encodes the result. Same input, same video, every time.
     python render_demo.py                 # docs/demo.mp4, 30 fps, 1280x720
     python render_demo.py --fps 24        # smaller file
     python render_demo.py --keep-frames   # leave the PNGs behind to inspect
+    python render_demo.py --frames 1      # one-frame smoke (reel-smoke.yml)
 
 Needs a Chromium browser (Chrome or Edge) and an ffmpeg binary. ffmpeg is
 located from PATH first, then from the `imageio-ffmpeg` wheel, which is the
