@@ -204,7 +204,7 @@ async def grab(
 async def render(
     frames_dir: Path, fps: int, keep: bool, limit: float | None,
     settle: int, fmt: str, quality: int, browser_arg: str | None,
-    theme: str | None = None,
+    theme: str | None = None, frames: int | None = None,
 ) -> float:
     url = REEL.resolve().as_uri() + "?render=1"
     if theme:
@@ -248,6 +248,9 @@ async def render(
         if limit:
             total_ms = min(total_ms, limit * 1000)
         count = max(1, int(round(total_ms / 1000 * fps)))
+        if frames:
+            # Smoke mode: enough frames to prove the reel draws at all.
+            count = min(count, frames)
         print(f"duration: {total_ms / 1000:.1f}s -> {count} frames at {fps} fps")
 
         started = time.monotonic()
@@ -262,11 +265,13 @@ async def render(
 
         # A poster frame (t=1.4s, after the title has revealed) makes the video
         # embeddable in a README without autoplaying it. Light-theme renders
-        # get their own poster so the two can be embedded side by side.
-        await client.evaluate("window.__reel.seek(1400)")
-        poster = (ROOT / "docs" / f"demo-poster-{theme}.png" if theme
-                  else ROOT / "docs" / "demo-poster.png")
-        await grab(client, poster, settle)
+        # get their own poster so the two can be embedded side by side. Smoke
+        # renders skip it: they must not touch the committed posters.
+        if not frames:
+            await client.evaluate("window.__reel.seek(1400)")
+            poster = (ROOT / "docs" / f"demo-poster-{theme}.png" if theme
+                      else ROOT / "docs" / "demo-poster.png")
+            await grab(client, poster, settle)
     finally:
         proc.terminate()
         try:
@@ -316,6 +321,7 @@ def main() -> None:
             frames_dir, ARGS.fps, ARGS.keep_frames,
             ARGS.only_seconds, ARGS.settle, ARGS.format, ARGS.quality, ARGS.browser,
             ARGS.theme,
+            ARGS.frames,
         )
     )
     encode(frames_dir, ARGS.fps, ARGS.out, "jpg" if ARGS.format == "jpeg" else ARGS.format)
@@ -353,6 +359,13 @@ if __name__ == "__main__":
         "--only-seconds",
         type=float,
         help="render only the first N seconds — a smoke test for the pipeline",
+    )
+    parser.add_argument(
+        "--frames",
+        type=int,
+        help="capture only the first N frames — the CI smoke check renders "
+        "exactly one frame per theme instead of a whole reel; a smoke render "
+        "never writes the README posters",
     )
     parser.add_argument(
         "--theme",
