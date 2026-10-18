@@ -144,6 +144,9 @@ def test_renderer_still_points_at_the_reel():
     assert '"?render=1"' in source
     assert 'default=30' in source
     assert 'docs" / "demo.mp4"' in source
+    # The CI smoke job renders one frame per theme through this flag; if
+    # it is renamed or removed, reel-smoke.yml starts failing blankly.
+    assert "--frames" in source
 
 
 # --- Light-theme coverage of the palette guard -------------------------
