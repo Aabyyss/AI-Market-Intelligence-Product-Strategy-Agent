@@ -1,0 +1,9 @@
+# Binary assets must never be line-ending normalized or diffed as text:
+# the committed videos and posters are hashed content (the reel stamp
+# test reads raw bytes), so even a false-positive text detection could
+# corrupt them.
+*.mp4 binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.woff binary
