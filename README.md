@@ -312,7 +312,7 @@ next step if this ever runs on more than one machine.
 ## Demo
 
 **[`docs/demo.mp4`](docs/demo.mp4)** — the whole system in 88 seconds
-(1280x720, 30 fps, 2.8 MB): collection → retrieval → five agents → the report
+(1280x720, 30 fps, 2.9 MB): collection → retrieval → five agents → the report
 and its citation audit → the eval metrics → live n8n/Slack operations → the CI
 gate. **[`docs/demo-light.mp4`](docs/demo-light.mp4)** is the same walkthrough
 in the console's light theme (`python render_demo.py --theme light`).
