@@ -222,6 +222,7 @@ user `n8n`, so automation survives lockdown.
 | learning loop | `tests/test_learning.py` | seed ranking/caps, hit/gap split, graceful degradation |
 | auth | `tests/test_auth.py` | lockdown lifecycle, session hashing, per-user scoping |
 | n8n exports | `tests/test_n8n_workflows.py` | structure, budgets, ASCII Slack text |
+| demo assets | `tests/test_demo_assets.py` | video stamp/shape, posters, light-palette of the reel + console + preview |
 | retrieval quality | `run_eval.py --min-mrr --min-recall` | CI gate against labeled questions |
 
 CI runs the whole suite plus the eval gate on every push, with a
