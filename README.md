@@ -346,7 +346,8 @@ tests/
   test_fetch.py          # retry/backoff and partial-failure behaviour
   test_n8n_workflows.py  # exported workflow JSONs: structure, budgets, Slack text
   test_console_and_launcher.py # the console: offline, real endpoints, byte-equality
-  test_demo_assets.py    # the reel/video/poster: sizes, stamps, no staleness
+  test_demo_assets.py    # the reel/video/poster: sizes, stamps, freshness,
+                         # and the light-palette guard over all three pages
   ci_sim_plugin.py       # `-p` plugin: run the suite with no LLM reachable
   fixtures/
     eval_questions.json  # hand-labeled eval questions (relevant post ids)
@@ -354,6 +355,7 @@ tests/
 conftest.py              # pytest sys.path bootstrap (empty)
 tests/conftest.py        # shared fixtures + the autouse no-network guard
 .github/workflows/ci.yml # CI: pytest + retrieval-only eval on every push
+.github/workflows/reel-smoke.yml # CI: smoke-render one demo frame per theme
 n8n/
   corpus_refresh.json    # 06:00 — refresh the corpus + rebuild the index
   market_report.json     # 07:00 — generate the report + notify Slack
