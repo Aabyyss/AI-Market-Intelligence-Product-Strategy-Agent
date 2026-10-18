@@ -1,0 +1,65 @@
+# Smoke-render a single frame of the demo reel in both themes.
+#
+# Runs on every push: renders exactly one frame of docs/demo.html per
+# theme and fails if either render dies or produces a file too small to
+# hold real content. It is not the staleness check (that is pytest's
+# test_committed_video_is_not_stale) - it proves the render pipeline
+# itself still works after renderer, reel, or dependency changes.
+
+name: "reel smoke: one frame per theme"
+on:
+  push:
+  workflow_dispatch:
+
+concurrency:
+  group: reel-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install renderer dependencies (no codec, no browser package)
+        run: pip install websockets imageio-ffmpeg
+
+      - name: Check a Chromium is available
+        run: |
+          google-chrome --version \
+            || chromium --version \
+            || chromium-browser --version
+
+      - name: Render one dark-theme frame
+        run: python render_demo.py --frames 1 --out data/smoke_dark.mp4
+
+      - name: Render one light-theme frame
+        run: python render_demo.py --frames 1 --theme light --out data/smoke_light.mp4
+
+      - name: Both smoke renders must exist and hold real pixels
+        run: |
+          test -s data/smoke_dark.mp4
+          test -s data/smoke_light.mp4
+          python - <<'PY'
+          from pathlib import Path
+          for name in ("data/smoke_dark.mp4", "data/smoke_light.mp4"):
+              size = Path(name).stat().st_size
+              # A blank/black frame encodes to about a kilobyte; the intro
+              # scene's title, rule and chips need several times that.
+              assert size > 2_000, f"{name} is suspiciously small: {size}B"
+              print(f"{name}: {size} bytes OK")
+          PY
+
+      - name: Upload the smoke frames (inspect on failure)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reel-smoke-frames
+          path: data/smoke_*.mp4
+          if-no-files-found: ignore
+          retention-days: 5
