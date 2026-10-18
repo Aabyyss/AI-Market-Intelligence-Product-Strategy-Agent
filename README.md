@@ -368,6 +368,7 @@ docs/
   demo-poster.png        # title frame, used in this README
   DEMO.md                # recording script, AI-video prompt, voiceover
   index.html             # GitHub Pages project site (live-run receipts, metrics)
+  AUTH_LIVE_CHECK_2026-10-19.md # live admin-endpoint receipts (14/14, reproducible)
 market_intel/
   auth.py           # accounts + bearer sessions (PBKDF2, separate auth.db)
   learning.py       # self-learning query loop: gaps, seeds, reinforcement
