@@ -39,7 +39,10 @@ The encoded file carries a hash of the reel it came from, and
 `tests/test_demo_assets.py` checks it against `docs/demo.html`. So editing one
 word or one scene duration in the reel fails the suite until you re-render,
 rather than quietly leaving a demo that shows numbers the project no longer
-claims.
+claims. The same file also guards the light palette: every dark hardcoded
+background must be repainted under `?theme=light`, in the reel and in the
+two console pages — because a missed repaint shipped once as a demo that
+opened on black pills with dark text.
 
 ### Or record the reel yourself (no browser automation)
 
