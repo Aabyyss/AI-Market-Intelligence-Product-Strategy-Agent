@@ -1,5 +1,8 @@
 # AI Market Intelligence & Product Strategy Agent
 
+[![CI](https://img.shields.io/github/actions/workflow/status/Aabyyss/AI-Market-Intelligence-Product-Strategy-Agent/ci.yml?label=CI&branch=main)](https://github.com/Aabyyss/AI-Market-Intelligence-Product-Strategy-Agent/actions/workflows/ci.yml)
+[![reel smoke](https://img.shields.io/github/actions/workflow/status/Aabyyss/AI-Market-Intelligence-Product-Strategy-Agent/reel-smoke.yml?label=reel%20smoke&branch=main)](https://github.com/Aabyyss/AI-Market-Intelligence-Product-Strategy-Agent/actions/workflows/reel-smoke.yml)
+
 Monitors e-commerce platform competitors (**Shopify, WooCommerce,
 BigCommerce**) and generates evidence-backed product opportunities and
 PRDs. Built incrementally, phase by phase.
