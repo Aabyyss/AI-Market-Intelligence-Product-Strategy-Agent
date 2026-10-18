@@ -226,7 +226,7 @@ user `n8n`, so automation survives lockdown.
 | retrieval quality | `run_eval.py --min-mrr --min-recall` | CI gate against labeled questions |
 
 CI runs the whole suite plus the eval gate on every push, with a
-concurrency group that cancels superseded runs. Two guards matter more
+concurrency group that cancels superseded runs. Three guards matter more
 than they look:
 
 - The **network guard** (autouse fixture in `tests/conftest.py`) points
@@ -236,6 +236,11 @@ than they look:
   exactly once, and is why the guard exists.
 - The **provider pin** in the `client` fixture keeps the suite passing
   identically on a machine with Ollama running and on a bare runner.
+- The **reel smoke** (`.github/workflows/reel-smoke.yml`) draws exactly
+  one demo frame per theme on every push. It is a second, cheap pair of
+  eyes next to the pytest stamp check: the committed video can still be
+  provably fresh while the render pipeline itself rots, and the smoke
+  job catches that in under a minute of rendering.
 
 ## Failure modes
 
