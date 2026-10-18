@@ -1,12 +1,15 @@
-"""Tests for the demo assets: the reel, the rendered video, the poster.
+"""Tests for the demo assets: the reel, the rendered video, the poster,
+and the light palette of the three theme-able pages.
 
-Nothing else in the suite touches `docs/`. Those files are easy to break
-silently in ways no other test would notice: add one `@import` and the reel
-stops working offline, change a scene duration and the committed video is
-instantly stale, re-encode at the wrong size and it only shows up on the
-project page. They are checked here without loading a browser or a codec —
-the MP4 boxes and the PNG header are parsed directly, so `pytest` needs no
-extra dependency to run these.
+Nothing else in the suite touches `docs/` or the console's markup. Those
+files are easy to break silently in ways no other test would notice: add
+one `@import` and the reel stops working offline, change a scene duration
+and the committed video is instantly stale, re-encode at the wrong size
+and it only shows up on the project page, ship one dark-only background
+and the light demo opens unreadable. They are checked here without
+loading a browser or a codec — the MP4 boxes and the PNG header are
+parsed directly, and the palette guard is plain text work, so `pytest`
+needs no extra dependency to run any of these.
 """
 
 from __future__ import annotations
