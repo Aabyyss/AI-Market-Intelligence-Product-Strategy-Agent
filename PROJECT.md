@@ -134,6 +134,14 @@ looks today.
     silent `catch`. *Fix:* attach handlers to the row after it is
     built; the lesson (never assign through a node that is not in the
     DOM yet) is why the pattern is now explicit.
+11. **The light demo opened unreadable.** The intro's tech chips keep
+    a hardcoded dark background, and the light theme override block
+    missed them — `demo-light.mp4` shipped opening on near-black pills
+    with dim text; a browser picked it up only by eye. *Fix:* repaint
+    under the light theme, re-render both videos, and add a static
+    palette guard that fails on any dark-only hardcoded surface in
+    the reel, the console, or the preview — plus a CI smoke render so
+    the render pipeline itself cannot rot silently.
 
 ## Status
 
